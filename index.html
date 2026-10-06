@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Baterías de alarma — Memoria de cálculo</title>
+  <meta name="description" content="Cálculo de baterías secundarias, fuentes auxiliares y caída de tensión para sistemas de detección y alarma contra incendio según NFPA 72:2022.">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      <div>
+        <div class="brand-sub">Sinergia Ingeniería</div>
+        <div class="brand-title">Baterías · Alarma contra incendio</div>
+      </div>
+    </div>
+
+    <div class="project-bar">
+      <label class="sr-only" for="selProyecto">Proyecto</label>
+      <select id="selProyecto" title="Proyecto activo"></select>
+      <div class="menu">
+        <button class="btn btn-ghost" id="btnMenuProyecto" aria-haspopup="true">Proyecto ▾</button>
+        <div class="menu-list" id="menuProyecto" hidden>
+          <button data-accion="nuevo">Nuevo proyecto</button>
+          <button data-accion="ejemplo">Nuevo proyecto de ejemplo (del Excel)</button>
+          <button data-accion="duplicar">Duplicar proyecto</button>
+          <button data-accion="exportar">Exportar proyecto (.json)</button>
+          <button data-accion="importar">Importar proyecto (.json)</button>
+          <hr>
+          <button data-accion="eliminar" class="danger">Eliminar proyecto</button>
+        </div>
+      </div>
+      <span class="save-state" id="estadoGuardado" title="Los datos se guardan en este navegador">● Guardado</span>
+    </div>
+
+    <button class="btn btn-admin" id="btnAdmin" title="Modo administrador">
+      <span aria-hidden="true">🔒</span> <span id="lblAdmin">Administrador</span>
+    </button>
+  </header>
+
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+
+  <main id="vista" class="vista"></main>
+
+  <footer class="pie">
+    Criterio: NFPA 72:2022 §10.6.7 · UL 864 · NEC Art. 760. Corrientes y resistencias de fichas de fabricante:
+    verificar contra la revisión vigente antes de construcción. Aprobación final: AHJ.
+  </footer>
+
+  <!-- Diálogo genérico -->
+  <dialog id="dlg">
+    <form method="dialog" id="dlgForm">
+      <h3 id="dlgTitulo"></h3>
+      <div id="dlgCuerpo"></div>
+      <div class="dlg-acciones">
+        <button value="ok" class="btn btn-primary" id="dlgOk">Aceptar</button>
+        <button value="cancel" class="btn btn-ghost" id="dlgCancelar" formnovalidate>Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <input type="file" id="fileInput" accept=".json,application/json" hidden>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/catalogo-base.js"></script>
+  <script src="js/calc.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
