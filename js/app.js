@@ -166,6 +166,16 @@
     };
   }
 
+  /* Proyecto en blanco con un solo nivel y su panel principal (FACP) */
+  function proyectoConPrimerNivel(nombre, nivel) {
+    var p = nuevoProyecto(nombre), prev = S.proy;
+    S.proy = p;
+    p.niveles.push(nivel);
+    p.paneles.push(nuevoPanel('FACP', nivel));
+    S.proy = prev;
+    return p;
+  }
+
   function nuevoCircuito() {
     return { id: uid('c'), fuente: (S.proy.paneles[0] || {}).id || '', circuito: '', desc: '', q: [null, null, null, null, null], otros: null, cable: buscarCable('5220UL'), long: null };
   }
@@ -342,6 +352,7 @@
     tab('proyecto', 'Proyecto');
     if (P.paneles.length) h.push('<span class="tab-sep"></span>');
     P.paneles.forEach(function (p) { tab('p:' + p.id, p.tag || '(sin TAG)', p.nivel, estadoEquipo(Calc.panel(S.cx, p, P), p)); });
+    h.push('<button class="tab tab-add" data-act="nivel-nuevo" title="Agregar un nivel con su panel/transponder">+ Nivel</button>');
     if (P.fuentes.length) h.push('<span class="tab-sep"></span>');
     P.fuentes.forEach(function (f) { tab('f:' + f.id, f.tag || '(sin TAG)', 'fuente aux.', estadoEquipo(Calc.fuente(S.cx, f, P), f)); });
     h.push('<span class="tab-sep"></span>');
@@ -514,16 +525,16 @@
     h.push('</div></div>');
 
     // Niveles
-    h.push('<section class="card"><div class="card-h"><h3>Niveles del edificio</h3><span class="nota">Se usan para ubicar paneles y como «Nivel / zona» de los dispositivos</span></div><div class="card-b">' +
+    h.push('<section class="card"><div class="card-h"><h3>Niveles del edificio</h3><span class="nota">Cada nivel nuevo crea su pestaña de panel/transponder. También sirven como «Nivel / zona» de los dispositivos.</span></div><div class="card-b">' +
       '<div class="chips">' + (P.niveles.length ? P.niveles.map(function (n, i) {
-        return '<span class="chip">' + esc(n) + '<button title="Quitar nivel" data-act="nivel-del" data-i="' + i + '">✕</button></span>';
+        var pn = P.paneles.filter(function (x) { return x.nivel === n; }).map(function (x) { return x.tag; }).join(', ');
+        return '<span class="chip">' + esc(n) + (pn ? ' <span class="muted" style="color:var(--ink-3)">· ' + esc(pn) + '</span>' : '') +
+          '<button title="Quitar nivel" data-act="nivel-del" data-i="' + i + '">✕</button></span>';
       }).join('') : '<span class="muted" style="color:var(--ink-3)">Sin niveles definidos.</span>') + '</div>' +
       '<div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap">' +
-      '<input class="in" id="inNivel" placeholder="Ej.: SÓTANO 2, SÓTANO 1, NIVEL 1, NIVEL 2" style="max-width:420px">' +
-      '<button class="btn" data-act="nivel-add">Agregar</button>' +
-      '<button class="btn" data-act="niveles-rango">Agregar rango…</button>' +
-      '<button class="btn btn-primary" data-act="trp-por-nivel" title="Crea un panel por cada nivel que todavía no tiene">Crear un panel/transponder por nivel</button>' +
-      '</div><small style="color:var(--ink-3); display:block; margin-top:6px">Separe varios niveles con coma. El primer panel creado será el FACP; los siguientes, transponders (TRP).</small></div></section>');
+      '<button class="btn btn-primary" data-act="nivel-nuevo">+ Agregar nivel</button>' +
+      '<button class="btn" data-act="niveles-rango">Agregar varios niveles…</button>' +
+      '</div></div></section>');
 
     // Paneles
     h.push('<section class="card"><div class="card-h"><h3>Paneles y transponders</h3>' +
@@ -1155,30 +1166,58 @@
     return c;
   }
 
-  function agregarNiveles(texto) {
-    var P = S.proy, n = 0;
-    String(texto || '').split(/[,;\n]+/).map(function (s) { return s.trim().toUpperCase(); }).filter(Boolean).forEach(function (s) {
-      if (P.niveles.indexOf(s) < 0) { P.niveles.push(s); n++; }
-    });
-    return n;
+  /* Agrega el nivel (si no existe) y, según «tipoPanel» (TRP / FACP / ''), su panel. Devuelve el panel creado o null. */
+  function crearNivel(nombre, tipoPanel) {
+    var P = S.proy;
+    if (P.niveles.indexOf(nombre) < 0) P.niveles.push(nombre);
+    if (!tipoPanel || P.paneles.some(function (x) { return x.nivel === nombre; })) return null;
+    var pn = nuevoPanel(P.paneles.length ? tipoPanel : 'FACP', nombre);
+    P.paneles.push(pn);
+    return pn;
+  }
+
+  /* Sugerencia para el siguiente nivel: NIVEL 1 → NIVEL 2 */
+  function siguienteNivel() {
+    var l = S.proy.niveles, u = l[l.length - 1];
+    if (!u) return 'NIVEL 1';
+    var m = String(u).match(/^(.*?)(\d+)\s*$/);
+    return m ? m[1] + (parseInt(m[2], 10) + 1) : '';
   }
 
   var acciones = {
     ir: function (b) { irA(b.dataset.tab); },
     imprimir: function () { window.print(); },
 
-    'nivel-add': function () {
-      var inp = document.getElementById('inNivel');
-      if (!agregarNiveles(inp.value)) { toast('Escriba uno o varios niveles nuevos'); return; }
-      proyectoCambiado(); renderVista();
-      document.getElementById('inNivel').focus();
+    'nivel-nuevo': function () {
+      var P = S.proy;
+      dialogo({
+        titulo: 'Agregar nivel',
+        html: '<label class="campo"><span>Nombre del nivel</span><input name="nombre" required value="' + esc(siguienteNivel()) + '" list="dl-sug-niveles"></label>' +
+          '<datalist id="dl-sug-niveles"><option value="SÓTANO 1"><option value="SÓTANO 2"><option value="NIVEL 1"><option value="MEZANINE"><option value="AZOTEA"></datalist>' +
+          '<label class="campo"><span>Panel de este nivel</span><select name="panel"><option value="TRP">Crear transponder (TRP)</option>' +
+          (P.paneles.length ? '' : '<option value="FACP">Crear panel principal (FACP)</option>') +
+          '<option value="">No crear panel</option></select></label>',
+        ok: 'Agregar'
+      }).then(function (r) {
+        if (!r) return;
+        var nombre = r.nombre.trim().toUpperCase();
+        if (!nombre) return;
+        if (P.niveles.indexOf(nombre) >= 0 && P.paneles.some(function (x) { return x.nivel === nombre; })) { toast('Ese nivel ya existe y tiene panel'); return; }
+        var nuevo = crearNivel(nombre, r.panel);
+        proyectoCambiado();
+        if (nuevo) { S.tab = 'p:' + nuevo.id; toast('Nivel ' + nombre + ' agregado con ' + nuevo.tag); } else toast('Nivel ' + nombre + ' agregado');
+        render();
+        window.scrollTo(0, 0);
+      });
     },
     'niveles-rango': function () {
       dialogo({
-        titulo: 'Agregar rango de niveles',
+        titulo: 'Agregar varios niveles',
         html: '<label class="campo"><span>Prefijo</span><select name="pre"><option value="NIVEL">NIVEL</option><option value="SÓTANO">SÓTANO</option><option value="PISO">PISO</option></select></label>' +
           '<div class="grid c2"><label class="campo"><span>Desde</span><input name="a" type="number" value="1" required></label><label class="campo"><span>Hasta</span><input name="b" type="number" value="5" required></label></div>' +
-          '<small>Para sótanos el rango se agrega de mayor a menor (p. ej. SÓTANO 3, SÓTANO 2, SÓTANO 1).</small>'
+          '<label class="campo"><span>Panel en cada nivel nuevo</span><select name="panel"><option value="TRP">Crear transponder (TRP)</option><option value="">No crear paneles</option></select></label>' +
+          '<small>Para sótanos el rango se agrega de mayor a menor (p. ej. SÓTANO 3, SÓTANO 2, SÓTANO 1).</small>',
+        ok: 'Agregar'
       }).then(function (r) {
         if (!r) return;
         var a = parseInt(r.a, 10), b = parseInt(r.b, 10), l = [];
@@ -1186,26 +1225,21 @@
         var lo = Math.min(a, b), hi = Math.max(a, b);
         for (var i = lo; i <= hi && l.length < 200; i++) l.push(r.pre + ' ' + i);
         if (r.pre === 'SÓTANO') l.reverse();
-        var n = agregarNiveles(l.join(','));
+        var n = 0;
+        l.forEach(function (nv) {
+          if (S.proy.niveles.indexOf(nv) >= 0 && S.proy.paneles.some(function (x) { return x.nivel === nv; })) return;
+          crearNivel(nv, r.panel); n++;
+        });
         toast(n + ' nivel(es) agregados');
-        proyectoCambiado(); renderVista();
+        proyectoCambiado(); render();
       });
     },
     'nivel-del': function (b) {
-      S.proy.niveles.splice(+b.dataset.i, 1);
+      var P = S.proy, n = P.niveles[+b.dataset.i];
+      var usado = P.paneles.concat(P.fuentes).filter(function (x) { return x.nivel === n; }).map(function (x) { return x.tag; });
+      if (usado.length) { toast('No se puede quitar ' + n + ': lo usa ' + usado.join(', ') + '. Elimine o reasigne ese panel primero.'); return; }
+      P.niveles.splice(+b.dataset.i, 1);
       proyectoCambiado(); renderVista();
-    },
-    'trp-por-nivel': function () {
-      var P = S.proy;
-      if (!P.niveles.length) { toast('Primero defina los niveles del edificio'); return; }
-      var conPanel = P.paneles.map(function (p) { return p.nivel; }), n = 0;
-      P.niveles.forEach(function (nv) {
-        if (conPanel.indexOf(nv) >= 0) return;
-        P.paneles.push(nuevoPanel(P.paneles.length ? 'TRP' : 'FACP', nv));
-        n++;
-      });
-      toast(n ? n + ' panel(es) creados — cada uno tiene su pestaña' : 'Todos los niveles ya tienen panel');
-      proyectoCambiado(); render();
     },
     'panel-add': function (b) {
       var p = nuevoPanel(b.dataset.tipo, '');
@@ -1367,10 +1401,11 @@
     if (f) f(b);
   });
   vista.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && e.target.id === 'inNivel') { e.preventDefault(); acciones['nivel-add'](); }
   });
 
   tabsEl.addEventListener('click', function (e) {
+    var a = e.target.closest('[data-act]');
+    if (a && acciones[a.dataset.act]) { acciones[a.dataset.act](a); return; }
     var b = e.target.closest('[data-tab]');
     if (b) irA(b.dataset.tab);
   });
@@ -1400,15 +1435,13 @@
         titulo: 'Nuevo proyecto',
         html: '<label class="campo"><span>Nombre del proyecto</span><input name="nombre" required></label>' +
           '<label class="campo"><span>N.º de proyecto</span><input name="numero"></label>' +
-          '<label class="campo"><span>Niveles (opcional, separados por coma)</span><input name="niveles" placeholder="SÓTANO 1, NIVEL 1, NIVEL 2"></label>',
+          '<label class="campo"><span>Primer nivel (los demás se agregan con «+ Nivel»)</span><input name="nivel" value="NIVEL 1" required></label>',
         ok: 'Crear'
       }).then(function (r) {
         if (!r) return;
-        var p = nuevoProyecto(r.nombre.trim());
+        var p = proyectoConPrimerNivel(r.nombre.trim(), r.nivel.trim().toUpperCase() || 'NIVEL 1');
         p.numero = r.numero.trim();
-        S.proy = p;
-        agregarNiveles(r.niveles);
-        abrirProyecto(p).then(function () { toast('Proyecto creado. Agregue paneles por nivel.'); });
+        abrirProyecto(p).then(function () { toast('Proyecto creado con su primer nivel. Use «+ Nivel» para agregar los demás.'); });
       });
     } else if (a === 'ejemplo') {
       abrirProyecto(proyectoEjemplo()).then(function () { toast('Proyecto de ejemplo creado con los datos del Excel'); });
@@ -1432,7 +1465,7 @@
         Store.eliminarProyecto(S.proy.id).then(function () { return Store.listarProyectos(); }).then(function (l) {
           S.lista = l;
           if (l.length) return Store.getProyecto(l[0].id).then(function (p) { return abrirProyecto(p); });
-          return abrirProyecto(nuevoProyecto('Proyecto nuevo'));
+          return abrirProyecto(proyectoConPrimerNivel('Proyecto nuevo', 'NIVEL 1'));
         }).then(function () { toast('Proyecto eliminado'); })
           .catch(function (e) { toast('⚠ ' + msgError(e)); });
       });
@@ -1651,8 +1684,8 @@
       renderAdminBtn();
       if (p) return abrirProyecto(p);
       S.proy = nuevoProyecto();
-      // Local: primer uso con el proyecto de ejemplo del Excel. Supabase: proyecto en blanco (no se ensucia la base compartida).
-      return abrirProyecto(REMOTO ? nuevoProyecto('Proyecto nuevo') : proyectoEjemplo());
+      // Primer uso: proyecto en blanco con un solo nivel. El ejemplo del Excel está en el menú «Proyecto».
+      return abrirProyecto(proyectoConPrimerNivel('Proyecto nuevo', 'NIVEL 1'));
     });
   }
 

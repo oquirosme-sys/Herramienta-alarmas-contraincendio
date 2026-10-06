@@ -6,7 +6,8 @@ baterías secundarias, fuentes auxiliares y caída de tensión según **NFPA 72:
 ## Uso
 
 1. **Proyecto** — datos generales, parámetros NFPA 72 (24 h espera, 5/15 min alarma, FS 20 %, 85 % fin de vida, 16 V mín., 2.4 A NAC) y **niveles del edificio**.
-   Con los niveles definidos, «Crear un panel/transponder por nivel» genera una pestaña por nivel (el primero es FACP, los demás TRP).
+   Un proyecto nuevo arranca con **un solo nivel** (y su panel principal FACP). Los demás se agregan uno a uno con el botón **«+ Nivel»**
+   (en la barra de pestañas o en la tarjeta Niveles): cada nivel nuevo crea su pestaña con un transponder (TRP). También hay «Agregar varios niveles…».
 2. **Pestaña de cada panel / transponder** — tabla de dispositivos: Fabricante → Modelo → Nivel/zona y cantidad.
    Las corrientes salen del catálogo; si se digita un valor unitario, reemplaza al del catálogo (celda amarilla).
    Cada equipo calcula su propia batería y selecciona la capacidad estándar inmediata superior.

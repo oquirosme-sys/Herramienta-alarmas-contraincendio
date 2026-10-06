@@ -255,3 +255,6 @@ dialog h3 { font-size: 17px; }
 body.sin-sesion .project-bar, body.sin-sesion .tabs { display: none; }
 body.sin-sesion #btnAdmin { display: none; }
 .acceso a { color: var(--accent); }
+
+.tab-add { color: #ffcf8a; font-weight: 600; }
+.tab-add:hover { color: #fff; background: rgba(255,255,255,.08); }
