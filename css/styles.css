@@ -146,6 +146,7 @@ table.t { border-collapse: collapse; width: 100%; font-size: 13px; }
 .t td .in.w-sm { width: 90px; min-width: 90px; }
 .t td .in.w-md { min-width: 150px; }
 .t td .in.w-lg { min-width: 240px; }
+.t td .in.w-xl { min-width: 340px; }
 .t td .in.editado { background: var(--edited); border-color: #e6c46b; }
 .t tfoot td { font-weight: 600; background: var(--line-2); padding: 8px; border-top: 1px solid var(--line); }
 .t .idx { color: var(--ink-3); font-size: 11px; width: 28px; text-align: center; }

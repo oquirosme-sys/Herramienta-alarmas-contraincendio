@@ -429,15 +429,21 @@
     orden.forEach(function (g) {
       h += '<optgroup label="' + esc(g) + '">' + grupos[g].map(function (d) {
         return '<option value="' + esc(d.id) + '"' + (d.id === sel ? ' selected' : '') + ' title="' + esc(d.descripcion) + '">' +
-          esc(d.tag) + ' — ' + esc(d.modelo) + '</option>';
+          esc(etiquetaDisp(d)) + '</option>';
       }).join('') + '</optgroup>';
     });
     if (sel && !S.cx.disp[sel]) h += '<option value="' + esc(sel) + '" selected>(no está en el catálogo)</option>';
     else if (sel && S.cx.disp[sel].fabricante !== fab) {
       var d = S.cx.disp[sel];
-      h += '<option value="' + esc(sel) + '" selected>' + esc(d.tag) + ' — ' + esc(d.modelo) + '</option>';
+      h += '<option value="' + esc(sel) + '" selected>' + esc(etiquetaDisp(d)) + '</option>';
     }
     return h;
+  }
+  /* Etiqueta del dispositivo en las listas: código (modelo/referencia) + descripción */
+  function etiquetaDisp(d) {
+    var cod = d.modelo && d.modelo !== '—' ? d.modelo : '';
+    var desc = d.descripcion || d.tag || '';
+    return cod && desc ? cod + ' — ' + desc : (cod || desc);
   }
   function optsDispTodos(sel) {
     var h = '<option value="">— sin modelo (0 mA) —</option>';
@@ -445,7 +451,7 @@
       var l = Calc.dispositivosDe(S.cx, f.id);
       if (!l.length) return;
       h += '<optgroup label="' + esc(f.nombre) + '">' + l.map(function (d) {
-        return '<option value="' + esc(d.id) + '"' + (d.id === sel ? ' selected' : '') + '>' + esc(d.tag) + ' — ' + esc(d.modelo) + ' (' + fmt(d.iAlarma, 0) + ' mA)</option>';
+        return '<option value="' + esc(d.id) + '"' + (d.id === sel ? ' selected' : '') + '>' + esc(etiquetaDisp(d)) + ' (' + fmt(d.iAlarma, 0) + ' mA)</option>';
       }).join('') + '</optgroup>';
     });
     return h;
@@ -621,11 +627,11 @@
     h.push('<section class="card"><div class="card-h"><h3>Dispositivos conectados</h3>' +
       '<span class="nota">Flujo: 1) Fabricante → 2) Modelo → 3) Nivel/zona y cantidad. ' + (esF ? '' : 'Incluya el consumo del panel/transponder como primera fila. ') +
       'Las corrientes unitarias vienen del catálogo; si digita un valor, reemplaza el de catálogo (amarillo).</span></div>' +
-      '<div class="card-b flush tabla-wrap"><table class="t"><thead><tr><th class="idx">#</th><th>Fabricante</th><th>Modelo</th><th>TAG</th><th>Descripción</th><th>Nivel / zona</th>' +
+      '<div class="card-b flush tabla-wrap"><table class="t"><thead><tr><th class="idx">#</th><th>Fabricante</th><th>Modelo / descripción</th><th>TAG</th><th>Nivel / zona</th>' +
       '<th class="num">Cant.</th><th class="num">I espera unit. (mA)</th><th class="num">I espera total (A)</th><th class="num">I alarma unit. (mA)</th><th class="num">I alarma total (A)</th><th>Observación</th><th></th><th></th></tr></thead><tbody>');
     eq.filas.forEach(function (f, i) { h.push(filaHTML(ref, f, i)); });
-    if (!eq.filas.length) h.push('<tr><td colspan="14" class="vacio">Sin dispositivos. Use «+ Fila» para comenzar.</td></tr>');
-    h.push('</tbody><tfoot><tr><td colspan="8" style="text-align:right">TOTALES' + (esF ? ' (incluye consumo propio de la fuente)' : '') + ':</td>' +
+    if (!eq.filas.length) h.push('<tr><td colspan="13" class="vacio">Sin dispositivos. Use «+ Fila» para comenzar.</td></tr>');
+    h.push('</tbody><tfoot><tr><td colspan="7" style="text-align:right">TOTALES' + (esF ? ' (incluye consumo propio de la fuente)' : '') + ':</td>' +
       '<td class="num" data-out="tot-ie"></td><td></td><td class="num" data-out="tot-ia"></td><td colspan="3"></td></tr></tfoot></table></div>' +
       '<div class="card-b" style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid var(--line)">' +
       '<button class="btn btn-primary btn-sm" data-act="fila-add" data-n="1">+ Fila</button><button class="btn btn-sm" data-act="fila-add" data-n="5">+ 5 filas</button>' +
@@ -673,9 +679,8 @@
     var b = function (k, t) { return 'data-o="fila" data-eq="' + esc(ref) + '" data-id="' + esc(f.id) + '" data-k="' + k + '"' + (t ? ' data-t="' + t + '"' : ''); };
     return '<tr data-fila="' + esc(f.id) + '"><td class="idx">' + (i + 1) + '</td>' +
       '<td><select class="in w-sm" ' + b('fab') + ' data-re="vista">' + optsFabricantes(f.fab) + '</select></td>' +
-      '<td><select class="in w-md" ' + b('disp') + ' data-re="vista">' + optsModelo(f.fab, f.disp) + '</select></td>' +
+      '<td><select class="in w-xl" ' + b('disp') + ' data-re="vista">' + optsModelo(f.fab, f.disp) + '</select></td>' +
       '<td class="calc" data-out="tag:' + f.id + '"></td>' +
-      '<td class="desc" data-out="desc:' + f.id + '"></td>' +
       '<td><input class="in w-sm" list="dl-niveles" ' + b('zona') + ' value="' + esc(f.zona) + '"></td>' +
       '<td><input class="in w-xs" type="number" min="0" step="1" ' + b('cant', 'num') + ' value="' + fmtN(f.cant) + '"></td>' +
       '<td><input class="in w-xs" type="number" step="any" ' + b('iEsp', 'num') + ' value="' + fmtN(f.iEsp) + '" placeholder="' + (d ? fmtN(d.iEspera) : '') + '"></td>' +
