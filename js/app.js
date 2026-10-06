@@ -439,11 +439,16 @@
     }
     return h;
   }
-  /* Etiqueta del dispositivo en las listas: código (modelo/referencia) + descripción */
+  /* Etiqueta del dispositivo en las listas: «código · qué es — descripción».
+   * Si el catálogo guardado es anterior al campo «tipo», se toma el del catálogo base. */
+  var TIPO_BASE = {};
+  (window.CATALOGO_BASE.dispositivos || []).forEach(function (d) { TIPO_BASE[d.id] = d.tipo || ''; });
   function etiquetaDisp(d) {
     var cod = d.modelo && d.modelo !== '—' ? d.modelo : '';
+    var tipo = d.tipo || TIPO_BASE[d.id] || '';
     var desc = d.descripcion || d.tag || '';
-    return cod && desc ? cod + ' — ' + desc : (cod || desc);
+    var ini = cod && tipo ? cod + ' · ' + tipo : (cod || tipo);
+    return ini && desc ? ini + ' — ' + desc : (ini || desc);
   }
   function optsDispTodos(sel) {
     var h = '<option value="">— sin modelo (0 mA) —</option>';
@@ -953,6 +958,7 @@
   var COLS_ADMIN = {
     dispositivos: [
       { k: 'fabricante', l: 'Fabricante', tipo: 'fab' }, { k: 'modelo', l: 'Modelo / ref.', w: 'w-sm' }, { k: 'tag', l: 'TAG', w: 'w-sm' },
+      { k: 'tipo', l: 'Tipo (qué es)', w: 'w-md', list: 'dl-tipos' },
       { k: 'descripcion', l: 'Descripción', w: 'w-lg' }, { k: 'iEspera', l: 'I espera (mA)', t: 'num' }, { k: 'iAlarma', l: 'I alarma (mA)', t: 'num' },
       { k: 'circuito', l: 'Circuito', w: 'w-sm', list: 'dl-circuitos' }, { k: 'obs', l: 'Fuente / observación', w: 'w-lg' }
     ],
@@ -1047,6 +1053,9 @@
     h.push('</tbody></table></div></section>');
     var circuitos = {};
     S.cat.dispositivos.forEach(function (d) { if (d.circuito) circuitos[d.circuito] = 1; });
+    var tipos = {};
+    S.cat.dispositivos.forEach(function (d) { if (d.tipo) tipos[d.tipo] = 1; });
+    h.push('<datalist id="dl-tipos">' + Object.keys(tipos).sort().map(function (t) { return '<option value="' + esc(t) + '">'; }).join('') + '</datalist>');
     h.push('<datalist id="dl-circuitos">' + Object.keys(circuitos).map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist>');
     vista.innerHTML = h.join('');
 
@@ -1293,7 +1302,7 @@
     'admin-sub': function (b) { S.adminSub = b.dataset.sub; renderVista(); },
     'cat-add': function () {
       var sub = S.adminSub, x;
-      if (sub === 'dispositivos') x = { id: uid('d'), fabricante: S.adminFiltro.fab || (S.cat.fabricantes[0] || {}).id, modelo: '', tag: '', descripcion: '', iEspera: 0, iAlarma: 0, circuito: '', obs: '' };
+      if (sub === 'dispositivos') x = { id: uid('d'), fabricante: S.adminFiltro.fab || (S.cat.fabricantes[0] || {}).id, modelo: '', tag: '', tipo: '', descripcion: '', iEspera: 0, iAlarma: 0, circuito: '', obs: '' };
       else if (sub === 'cables') x = { id: uid('c'), fabricante: '', modelo: '', awg: 16, conductores: 2, pantalla: 'NO', listado: 'FPLR', rKm: null, uso: '', obs: '' };
       else if (sub === 'baterias') x = { id: uid('b'), ah: null, refSimplex: '', refNotifier: '', refGenerica: '', obs: '' };
       else x = { id: uid('fab'), nombre: '' };

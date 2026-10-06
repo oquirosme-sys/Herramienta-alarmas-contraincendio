@@ -26,7 +26,7 @@
   var MAPAS = {
     fabricantes: { id: 'id', nombre: 'nombre' },
     dispositivos: {
-      id: 'id', fabricante: 'fabricante_id', modelo: 'modelo', tag: 'tag', descripcion: 'descripcion',
+      id: 'id', fabricante: 'fabricante_id', modelo: 'modelo', tag: 'tag', tipo: 'tipo', descripcion: 'descripcion',
       iEspera: 'i_espera_ma', iAlarma: 'i_alarma_ma', circuito: 'circuito', obs: 'obs'
     },
     cables: {
@@ -36,7 +36,7 @@
     baterias: { id: 'id', ah: 'ah', refSimplex: 'ref_simplex', refNotifier: 'ref_notifier', refGenerica: 'ref_generica', obs: 'obs' }
   };
   var TABLAS = ['fabricantes', 'dispositivos', 'cables', 'baterias'];
-  var TEXTO = { modelo: 1, tag: 1, descripcion: 1, circuito: 1, obs: 1, fabricante: 1, pantalla: 1, listado: 1, uso: 1, refSimplex: 1, refNotifier: 1, refGenerica: 1, nombre: 1 };
+  var TEXTO = { modelo: 1, tag: 1, tipo: 1, descripcion: 1, circuito: 1, obs: 1, fabricante: 1, pantalla: 1, listado: 1, uso: 1, refSimplex: 1, refNotifier: 1, refGenerica: 1, nombre: 1 };
 
   function aFila(tabla, x, orden) {
     var m = MAPAS[tabla], r = { orden: orden };

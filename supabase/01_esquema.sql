@@ -91,6 +91,7 @@ create table if not exists public.dispositivos (
   fabricante_id    text not null references public.fabricantes (id) on update cascade on delete restrict,
   modelo           text not null default '',
   tag              text not null default '',
+  tipo             text not null default '',   -- qué es: «Detector de humo», «Módulo de monitoreo»…
   descripcion      text not null default '',
   i_espera_ma      numeric,            -- mA a 24 VDC
   i_alarma_ma      numeric,            -- mA a 24 VDC
@@ -100,6 +101,7 @@ create table if not exists public.dispositivos (
   actualizado_en   timestamptz not null default now(),
   actualizado_por  uuid default auth.uid()
 );
+alter table public.dispositivos add column if not exists tipo text not null default '';  -- por si la tabla ya existía
 create index if not exists dispositivos_fabricante_idx on public.dispositivos (fabricante_id);
 
 create table if not exists public.cables (
