@@ -26,6 +26,25 @@ El menú **Proyecto ▾** permite crear, duplicar, exportar/importar (.json) y e
 Si el Ah requerido supera la mayor batería del catálogo, el Excel devolvía en silencio la batería **más pequeña** (6.2 Ah).
 La herramienta lo marca como **REVISAR — excede catálogo**.
 
+## Validación contra la simbología CDCLH-001S
+
+El catálogo se validó contra la lámina de simbología de Circuito S.A. (versiones Simplex y Notifier): se agregaron los dispositivos que faltaban
+(detectores de haz de luz, convencionales, bases audibles, protección de sobretensiones SS, fuentes remotas, anunciador, teléfono de bomberos, etc.)
+y el cable 6x14 STP del anunciador. Cada tipo muestra la sigla del símbolo (AIM, AOM, WF, VS, IM, SS, RPS, AMP, FAA…).
+Los dispositivos agregados sin corriente conocida quedan con la corriente en blanco: la fila se marca **REVISAR** hasta que se digite la corriente
+(en la fila, o en Administración → Dispositivos).
+
+## Versión en Excel (copia local)
+
+La carpeta `excel/` contiene el mismo cálculo como libro de Excel con fórmulas vivas, listas desplegables dependientes
+(fabricante → «código · qué es — descripción»), catálogos en hojas ocultas, caída de tensión y memoria de cálculo:
+
+- `Calculo_baterias_Alarmas_PLANTILLA.xlsx` — un nivel (NIVEL 1 + FACP-01), listo para llenar.
+- `Calculo_baterias_Alarmas_EJEMPLO.xlsx` — datos del Excel original (resultados de referencia: FACP-01 102.59 Ah → 110 Ah; TRP 12.46 → 12.7 Ah; RPS-01 5.05 → 6.2 Ah).
+- `generar_excel.py` — regenera ambos libros desde `js/catalogo-base.js` (`python excel/generar_excel.py`); después abrirlos en Excel y guardar para que queden los valores calculados.
+
+El libro es independiente de la web (no se sincronizan). Instrucciones de uso dentro del libro, hoja `INSTRUCCIONES`.
+
 ## Estructura
 
 ```

@@ -29,12 +29,31 @@
     return (prefijo || 'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   }
 
+  function desdeBase() {
+    var c = clonar(global.CATALOGO_BASE);
+    c.baseVersion = c.version;
+    return c;
+  }
+
   var LocalStore = {
     nombre: 'Navegador (local)',
 
     getCatalogo: function () {
       var c = leer(K.catalogo, null);
-      return Promise.resolve(c || clonar(global.CATALOGO_BASE));
+      if (!c) return Promise.resolve(desdeBase());
+      // Catálogo editado y guardado antes de una versión nueva del catálogo base: se suman, una sola vez, los registros
+      // nuevos del base (por id) sin tocar lo editado; lo que el administrador borre después no vuelve a agregarse.
+      var base = global.CATALOGO_BASE;
+      if ((c.baseVersion || 0) < base.version) {
+        ['fabricantes', 'dispositivos', 'cables'].forEach(function (t) {
+          var ids = {};
+          (c[t] = c[t] || []).forEach(function (x) { ids[x.id] = 1; });
+          (base[t] || []).forEach(function (x) { if (!ids[x.id]) c[t].push(clonar(x)); });
+        });
+        c.baseVersion = base.version;
+        escribir(K.catalogo, c);
+      }
+      return Promise.resolve(c);
     },
     saveCatalogo: function (cat) {
       cat.actualizado = new Date().toISOString().slice(0, 10);
@@ -42,7 +61,7 @@
     },
     restablecerCatalogo: function () {
       localStorage.removeItem(K.catalogo);
-      return Promise.resolve(clonar(global.CATALOGO_BASE));
+      return Promise.resolve(desdeBase());
     },
 
     listarProyectos: function () {
