@@ -18,6 +18,8 @@
   };
 
   var vista = document.getElementById('vista');
+  // «← Suite» lleva al portal (APP_CONFIG.suiteUrl)
+  document.getElementById('volverSuite').href = (window.APP_CONFIG && APP_CONFIG.suiteUrl) || 'index.html';
   var tabsEl = document.getElementById('tabs');
 
   /* ======================= utilidades ======================= */
@@ -345,17 +347,17 @@
   function renderTabs() {
     var P = S.proy, h = [];
     function tab(id, label, sub, dot, extra) {
-      h.push('<button class="tab' + (S.tab === id ? ' activa' : '') + (extra || '') + '" role="tab" data-tab="' + esc(id) + '">' +
-        (dot ? '<span class="tab-dot ' + dot + '"></span>' : '') + esc(label) +
-        (sub ? ' <span class="tab-sub">' + esc(sub) + '</span>' : '') + '</button>');
+      h.push('<button class="seccion' + (S.tab === id ? ' activa' : '') + (extra || '') + '" role="tab" data-tab="' + esc(id) + '">' +
+        (dot ? '<span class="dot ' + dot + '"></span>' : '') + esc(label) +
+        (sub ? ' <span class="sec-sub">' + esc(sub) + '</span>' : '') + '</button>');
     }
     tab('proyecto', 'Proyecto');
-    if (P.paneles.length) h.push('<span class="tab-sep"></span>');
+    if (P.paneles.length) h.push('<span class="seccion-sep"></span>');
     P.paneles.forEach(function (p) { tab('p:' + p.id, p.tag || '(sin TAG)', p.nivel, estadoEquipo(Calc.panel(S.cx, p, P), p)); });
-    h.push('<button class="tab tab-add" data-act="nivel-nuevo" title="Agregar un nivel con su panel/transponder">+ Nivel</button>');
-    if (P.fuentes.length) h.push('<span class="tab-sep"></span>');
+    h.push('<button class="seccion mas" data-act="nivel-nuevo" title="Agregar un nivel con su panel/transponder">+ Nivel</button>');
+    if (P.fuentes.length) h.push('<span class="seccion-sep"></span>');
     P.fuentes.forEach(function (f) { tab('f:' + f.id, f.tag || '(sin TAG)', 'fuente aux.', estadoEquipo(Calc.fuente(S.cx, f, P), f)); });
-    h.push('<span class="tab-sep"></span>');
+    h.push('<span class="seccion-sep"></span>');
     var cd = Calc.caida(S.cx, P);
     tab('caida', 'Caída de tensión', '', P.caida.circuitos.length ? (cd.errores ? 'error' : 'ok') : 'pend');
     tab('memoria', 'Memoria de cálculo');
@@ -498,7 +500,7 @@
 
     h.push('<div class="grid-2col"><div>');
     // Información
-    h.push('<section class="card"><div class="card-h"><h3>Información del proyecto</h3><span class="nota">Celdas verdes = entrada manual</span></div><div class="card-b"><div class="grid c4">' +
+    h.push('<section class="card"><div class="card-h"><h3>Información del proyecto</h3><span class="nota">Entrada manual: campos blancos · cálculo automático: fondo gris</span></div><div class="card-b"><div class="grid c4">' +
       campo('Nombre del proyecto', B('nombre', null, 'sel'), P.nombre, { span: 2 }) +
       campo('N.º de proyecto', B('numero', null, 'sel'), P.numero) +
       campo('Revisión', B('revision'), P.revision) +
@@ -532,13 +534,13 @@
           '<button title="Quitar nivel" data-act="nivel-del" data-i="' + i + '">✕</button></span>';
       }).join('') : '<span class="muted" style="color:var(--ink-3)">Sin niveles definidos.</span>') + '</div>' +
       '<div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap">' +
-      '<button class="btn btn-primary" data-act="nivel-nuevo">+ Agregar nivel</button>' +
+      '<button class="btn primary" data-act="nivel-nuevo">+ Agregar nivel</button>' +
       '<button class="btn" data-act="niveles-rango">Agregar varios niveles…</button>' +
       '</div></div></section>');
 
     // Paneles
     h.push('<section class="card"><div class="card-h"><h3>Paneles y transponders</h3>' +
-      '<div style="display:flex; gap:6px"><button class="btn btn-sm" data-act="panel-add" data-tipo="FACP">+ FACP</button><button class="btn btn-sm btn-primary" data-act="panel-add" data-tipo="TRP">+ Transponder</button></div></div>' +
+      '<div style="display:flex; gap:6px"><button class="btn btn-sm" data-act="panel-add" data-tipo="FACP">+ FACP</button><button class="btn btn-sm primary" data-act="panel-add" data-tipo="TRP">+ Transponder</button></div></div>' +
       '<div class="card-b flush tabla-wrap">');
     if (!P.paneles.length) {
       h.push('<div class="vacio">Todavía no hay paneles. Agregue el FACP y los transponders (cada uno calcula su propia batería).</div>');
@@ -561,7 +563,7 @@
     h.push('</div></section>');
 
     // Fuentes
-    h.push('<section class="card"><div class="card-h"><h3>Fuentes de poder auxiliares</h3><button class="btn btn-sm btn-primary" data-act="fuente-add">+ Fuente auxiliar</button></div><div class="card-b flush tabla-wrap">');
+    h.push('<section class="card"><div class="card-h"><h3>Fuentes de poder auxiliares</h3><button class="btn btn-sm primary" data-act="fuente-add">+ Fuente auxiliar</button></div><div class="card-b flush tabla-wrap">');
     if (!P.fuentes.length) {
       h.push('<div class="vacio">Sin fuentes auxiliares (NAC expander / bases sonoras). Agregue una si el proyecto la requiere.</div>');
     } else {
@@ -623,7 +625,7 @@
       '<div class="sub">' + (esF ? 'Cálculo de fuente de poder auxiliar (NAC expander / bases sonoras) — NFPA 72:2022'
         : 'Cálculo de baterías — NFPA 72:2022 §10.6.7. Cada panel/transponder calcula su propia batería (respalda solo su carga local).') + '</div></div>' +
       '<div class="acciones"><button class="btn" data-act="ir" data-tab="proyecto">← Proyecto</button>' +
-      '<button class="btn btn-danger" data-act="' + o + '-del" data-id="' + esc(eq.id) + '">Eliminar ' + (esF ? 'fuente' : 'panel') + '</button></div></div>');
+      '<button class="btn danger" data-act="' + o + '-del" data-id="' + esc(eq.id) + '">Eliminar ' + (esF ? 'fuente' : 'panel') + '</button></div></div>');
 
     // Datos del equipo
     h.push('<section class="card"><div class="card-h"><h3>Datos del equipo</h3><span class="nota">Parámetros vacíos = se usa el valor del proyecto (en gris)</span></div><div class="card-b"><div class="grid c4">' +
@@ -650,7 +652,7 @@
     h.push('</tbody><tfoot><tr><td colspan="7" style="text-align:right">TOTALES' + (esF ? ' (incluye consumo propio de la fuente)' : '') + ':</td>' +
       '<td class="num" data-out="tot-ie"></td><td></td><td class="num" data-out="tot-ia"></td><td colspan="3"></td></tr></tfoot></table></div>' +
       '<div class="card-b" style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid var(--line)">' +
-      '<button class="btn btn-primary btn-sm" data-act="fila-add" data-n="1">+ Fila</button><button class="btn btn-sm" data-act="fila-add" data-n="5">+ 5 filas</button>' +
+      '<button class="btn primary btn-sm" data-act="fila-add" data-n="1">+ Fila</button><button class="btn btn-sm" data-act="fila-add" data-n="5">+ 5 filas</button>' +
       '<button class="btn btn-sm" data-act="filas-limpiar">Quitar filas vacías</button></div>' +
       '<datalist id="dl-niveles">' + P.niveles.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist></section>');
 
@@ -785,7 +787,7 @@
     });
     if (!cd.circuitos.length) h.push('<tr><td colspan="23" class="vacio">Sin circuitos. Use «+ Circuito» para comenzar.</td></tr>');
     h.push('</tbody><tfoot><tr><td colspan="10" style="text-align:right">TOTAL (A):</td><td class="num" data-out="tot"></td><td colspan="12" class="muted" style="font-weight:400">Verificar contra la capacidad total del panel / fuente</td></tr></tfoot></table></div>' +
-      '<div class="card-b" style="display:flex; gap:8px; border-top:1px solid var(--line)"><button class="btn btn-primary btn-sm" data-act="circ-add" data-n="1">+ Circuito</button><button class="btn btn-sm" data-act="circ-add" data-n="5">+ 5 circuitos</button></div></section>');
+      '<div class="card-b" style="display:flex; gap:8px; border-top:1px solid var(--line)"><button class="btn primary btn-sm" data-act="circ-add" data-n="1">+ Circuito</button><button class="btn btn-sm" data-act="circ-add" data-n="5">+ 5 circuitos</button></div></section>');
     vista.innerHTML = h.join('');
 
     S.pintor = function () {
@@ -808,159 +810,200 @@
     };
   }
 
-  /* ======================= vista: Memoria de cálculo ======================= */
+  /* ======================= vista: Memoria de cálculo (formato Sinergia) =======================
+   * Hoja carta, membrete y pie en las cajas de margen del @page (ver css/styles.css). Tablas con título «Tabla No. N»,
+   * solo reglas horizontales, anchos de columna declarados, cifras a la derecha y ninguna celda en blanco («—»).
+   * El color queda solo para la criticidad (la palabra, sin píldora ni fondo). */
+  function crit(est) {
+    if (!est) return '—';
+    if (est === 'OK') return 'OK';
+    return '<span class="' + (est === 'INCOMPLETO' ? 'crit-warn' : 'crit-err') + '">' + esc(est) + '</span>';
+  }
+  function dato(x) { return x === null || x === undefined || x === '' ? '—' : esc(x); }
+
+  /* cols: [{t: encabezado, w: ancho relativo, num: true si es cifra}] · filas: [celdas] o {tot: true, c: celdas}.
+   * Una celda es texto HTML o {h: html, s: colspan}. Una celda vacía se imprime como «—». */
+  function tablaDoc(ctx, titulo, cols, filas, vacio) {
+    ctx.n++;
+    var cap = '<figcaption><span>Tabla No. ' + ctx.n + '</span><br>' + esc(titulo) + '</figcaption>';
+    if (!filas.length) return '<figure class="doc-table">' + cap + '<p class="note">' + esc(vacio || 'Sin datos') + '</p></figure>';
+    var suma = cols.reduce(function (s, c) { return s + c.w; }, 0);
+    var cg = '<colgroup>' + cols.map(function (c) { return '<col style="width:' + (c.w / suma * 100).toFixed(2) + '%">'; }).join('') + '</colgroup>';
+    var th = '<thead><tr>' + cols.map(function (c) { return '<th' + (c.num ? ' class="num"' : '') + '>' + esc(c.t) + '</th>'; }).join('') + '</tr></thead>';
+    var tb = '<tbody>' + filas.map(function (f) {
+      var celdas = f.c || f, col = 0;
+      return '<tr' + (f.tot ? ' class="total"' : '') + '>' + celdas.map(function (c) {
+        var span = c && typeof c === 'object' ? (c.s || 1) : 1, html = c && typeof c === 'object' ? c.h : c;
+        var num = cols[col] && cols[col].num && span === 1;
+        col += span;
+        return '<td' + (num ? ' class="num"' : '') + (span > 1 ? ' colspan="' + span + '"' : '') + '>' + (html === '' || html === null || html === undefined ? '—' : html) + '</td>';
+      }).join('') + '</tr>';
+    }).join('') + '</tbody>';
+    return '<figure class="doc-table">' + cap + '<div class="tabla-wrap"><table>' + cg + th + tb + '</table></div></figure>';
+  }
+
   function vistaMemoria() {
     var P = S.proy, pp = P.params;
     var R = Calc.proyecto(S.cx, P);
     var vF = R.caida.params.vFuente;
     var detalle = S.memDetalle !== false;
+    var ctx = { n: 0 };
     var h = [];
-    h.push('<div class="encabezado no-print"><div><h2>Memoria de cálculo</h2><div class="sub">Resumen de todo el proyecto. Use «Imprimir / PDF» para emitirla.</div></div>' +
-      '<div class="acciones"><label style="display:flex; align-items:center; gap:6px; font-size:13px"><input type="checkbox" id="chkDetalle"' + (detalle ? ' checked' : '') + '> Incluir detalle por equipo</label>' +
-      '<button class="btn btn-primary" data-act="imprimir">Imprimir / PDF</button></div></div>');
+    var equipos = R.paneles.map(function (x) { return x.p.tag; }).concat(R.fuentes.map(function (x) { return x.f.tag; }));
 
-    h.push('<article class="memoria">');
-    h.push('<h1>MEMORIA DE CÁLCULO — SISTEMA DE DETECCIÓN Y ALARMA CONTRA INCENDIO</h1>' +
-      '<div class="m-sub">Baterías secundarias, fuentes auxiliares y caída de tensión · NFPA 72:2022</div>');
-    var fi = function (k, v) { return '<div>' + k + '</div><div>' + esc(v || '—') + '</div>'; };
-    h.push('<div class="ficha">' + fi('PROYECTO', P.nombre) + fi('N.º PROYECTO', P.numero) + fi('CLIENTE', P.cliente) + fi('UBICACIÓN', P.ubicacion) +
-      fi('ELABORÓ', P.elaboro) + fi('REVISÓ', P.reviso) + fi('EMPRESA', P.empresa) + fi('FECHA / REV.', (P.fecha || '') + ' · Rev. ' + (P.revision || '0')) +
-      fi('NORMATIVA', P.normativa) + fi('PANELES', R.paneles.map(function (x) { return x.p.tag; }).join(', ')) + '</div>');
+    h.push('<div class="card no-print" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap">' +
+      '<button class="btn primary" data-act="imprimir">Imprimir / Guardar PDF</button>' +
+      '<label style="display:flex; align-items:center; gap:6px; font-size:13px"><input type="checkbox" id="chkDetalle"' + (detalle ? ' checked' : '') + '> Incluir detalle de cargas por equipo (anexo)</label>' +
+      '<span class="muted" style="font-size:12px">Formato Sinergia: hoja carta, márgenes 3,0 / 2,5 cm. Verifique la impresión en el PDF.</span></div>');
 
-    h.push('<h2>1. Criterios normativos</h2><ul>' +
+    h.push('<article class="doc">');
+    h.push('<header class="doc-head"><img class="doc-logo" src="img/logo-sinergia.png" alt="Sinergia Ingeniería">' +
+      '<div class="doc-addr">Sinergia Consultoría Mecánica y Eléctrica S.A<br>Oficentro Plaza Roble, Edificio Pórtico, Escazú</div></header>');
+    h.push('<h1 class="doc-title">Memoria de cálculo del sistema de detección y alarma contra incendio</h1>' +
+      '<p class="doc-sub">' + dato(P.nombre) + (P.numero ? ' · proyecto ' + esc(P.numero) : '') + ' · baterías secundarias, fuentes auxiliares y caída de tensión · NFPA 72:2022</p>');
+
+    h.push('<h2>1. Datos del proyecto</h2><dl class="kv">' + [
+      ['proyecto #', P.numero], ['nombre', P.nombre], ['cliente', P.cliente], ['ubicación', P.ubicacion], ['elaboró', P.elaboro], ['revisó', P.reviso],
+      ['empresa', P.empresa], ['fecha', P.fecha], ['revisión', P.revision || '0'], ['normativa', P.normativa], ['equipos', equipos.join(', ')]
+    ].map(function (kv) { return '<dt>' + kv[0] + '</dt><dd>' + dato(kv[1]) + '</dd>'; }).join('') + '</dl>');
+
+    h.push('<h2>2. Criterios normativos</h2><ul>' +
       '<li>NFPA 72:2022 §10.6.7.2.1(1): la fuente secundaria debe operar el sistema 24 horas en espera y luego 5 minutos en alarma.</li>' +
       '<li>NFPA 72:2022 §10.6.7.2.1(2): sistemas de voceo/EVACS: 24 horas en espera y 15 minutos a carga máxima conectada.</li>' +
-      '<li>Parámetros usados en este proyecto: espera <b>' + fmt(pp.tEspera, 0) + ' h</b>, alarma <b>' + fmt(pp.tAlarma, 0) + ' min</b>, factor de seguridad <b>' + fmt(pp.fs * 100, 0) + ' %</b> (salvo indicación por equipo).</li>' +
+      '<li>Parámetros de este proyecto: espera ' + fmt(pp.tEspera, 0) + ' h, alarma ' + fmt(pp.tAlarma, 0) + ' min y factor de seguridad ' + fmt(pp.fs * 100, 0) + ' % (salvo reemplazo indicado en el equipo).</li>' +
       '<li>Factor de seguridad sobre la capacidad calculada: requisito de fichas de fabricante (Simplex, Notifier, Siemens) por envejecimiento de baterías.</li>' +
-      '<li>Caída de tensión: todo dispositivo de notificación debe operar dentro de su rango listado (UL 1971/UL 464, típico 16–33 V regulado). El cálculo usa la tensión de fuente degradada a fin de vida de batería: <b>' +
-      fmt(vF, 2) + ' V</b> (' + fmt(pp.pctFinVida * 100, 0) + ' % de ' + fmt(pp.vNominal, 0) + ' V, criterio UL 864).</li>' +
+      '<li>Caída de tensión: todo dispositivo de notificación debe operar dentro de su rango listado (UL 1971/UL 464, típico 16–33 V regulado). El cálculo usa la tensión de fuente degradada a fin de vida de batería: ' +
+      fmt(vF, 2) + ' V (' + fmt(pp.pctFinVida * 100, 0) + ' % de ' + fmt(pp.vNominal, 0) + ' V, criterio UL 864).</li>' +
       '<li>Cableado y supervisión según NFPA 72 Cap. 12 y NEC Art. 760 (FPL/FPLR/FPLP).</li></ul>');
 
-    h.push('<h2>2. Metodología de cálculo de baterías</h2><ul>' +
-      '<li><span class="formula">Ah_espera = I_espera (A) × t_espera (h)</span> · <span class="formula">Ah_alarma = I_alarma (A) × t_alarma (h)</span></li>' +
-      '<li><span class="formula">Ah_requerido = (Ah_espera + Ah_alarma) × (1 + FS)</span></li>' +
-      '<li>Corrientes unitarias tomadas del catálogo de dispositivos (fichas de fabricante); verificar contra la revisión vigente del modelo/candela/tap de planos.</li>' +
+    h.push('<h2>3. Metodología de cálculo de baterías</h2><ul>' +
+      '<li>Ah_espera = I_espera (A) × t_espera (h); Ah_alarma = I_alarma (A) × t_alarma (h).</li>' +
+      '<li>Ah_requerido = (Ah_espera + Ah_alarma) × (1 + FS).</li>' +
+      '<li>Corrientes unitarias tomadas del catálogo de dispositivos (fichas de fabricante); verificar contra la revisión vigente del modelo, la candela y el tap de planos.</li>' +
       '<li>Selección automática: capacidad estándar inmediata superior del catálogo de baterías (2 × 12 V en serie = 24 VDC).</li>' +
-      '<li>Cada panel/transponder calcula su propia batería: las baterías del transponder respaldan solo su carga local.</li></ul>');
+      '<li>Cada panel o transponder calcula su propia batería: las baterías del transponder respaldan solo su carga local.</li></ul>');
 
-    h.push('<h2>3. Metodología de caída de tensión (carga concentrada)</h2><ul>' +
-      '<li><span class="formula">R_lazo = 2 × L × r</span>, con L = longitud de ida (m) y r = resistencia por conductor (Ω/m) de ficha del fabricante.</li>' +
-      '<li><span class="formula">V_dispositivo = V_fuente − I_circuito × R_lazo</span>, con V_fuente = ' + fmt(vF, 2) + ' V.</li>' +
-      '<li>Aceptación: V_dispositivo ≥ ' + fmt(pp.vMin, 1) + ' V e I_circuito ≤ ' + fmt(pp.iMaxNac, 2) + ' A (80 % de la corriente máxima del NAC/fuente).</li>' +
+    h.push('<h2>4. Metodología de caída de tensión (carga concentrada)</h2><ul>' +
+      '<li>R_lazo = 2 × L × r, con L = longitud de ida (m) y r = resistencia por conductor (Ω/m) de la ficha del fabricante.</li>' +
+      '<li>V_dispositivo = V_fuente − I_circuito × R_lazo, con V_fuente = ' + fmt(vF, 2) + ' V.</li>' +
+      '<li>Aceptación: V_dispositivo ≥ ' + fmt(pp.vMin, 1) + ' V e I_circuito ≤ ' + fmt(pp.iMaxNac, 2) + ' A (80 % de la corriente máxima del NAC o de la fuente).</li>' +
       '<li>El método de carga concentrada (toda la carga al final del circuito) es el más conservador aceptado por NFPA 72 (Anexo A).</li></ul>');
 
-    // Resultados
+    // ---- 5. Resultados
     var errCaida = R.caida.errores;
     var revisar = R.paneles.filter(function (x) { return x.r.estado !== 'OK'; }).length + R.fuentes.filter(function (x) { return x.r.estado !== 'OK'; }).length;
-    h.push('<h2>4. Resultados</h2><div class="kpis">' +
-      '<div class="kpi"><div class="k">Ah requerido total (paneles)</div><div class="v">' + fmt(R.totalPaneles.ahReq, 2) + ' <small>Ah</small></div></div>' +
-      '<div class="kpi"><div class="k">Paneles / transponders</div><div class="v">' + R.paneles.length + '</div></div>' +
-      '<div class="kpi"><div class="k">Fuentes auxiliares</div><div class="v">' + R.fuentes.length + '</div></div>' +
-      '<div class="kpi ' + (revisar ? 'error' : 'ok') + '"><div class="k">Equipos por revisar</div><div class="v">' + revisar + '</div></div>' +
-      '<div class="kpi ' + (errCaida ? 'error' : 'ok') + '"><div class="k">Circuitos con error de caída</div><div class="v">' + errCaida + '</div></div></div>');
+    h.push('<h2>5. Resultados</h2>');
+    h.push(tablaDoc(ctx, 'Resumen de resultados del sistema', [{ t: 'indicador', w: 8 }, { t: 'valor', w: 3, num: true }], [
+      ['Ah requerido total del sistema (paneles y transponders)', fmt(R.totalPaneles.ahReq, 2)],
+      ['paneles y transponders', String(R.paneles.length)],
+      ['fuentes auxiliares', String(R.fuentes.length)],
+      ['equipos por revisar', revisar ? '<span class="crit-err">' + revisar + '</span>' : '0'],
+      ['circuitos con error de caída de tensión', errCaida ? '<span class="crit-err">' + errCaida + '</span>' : '0']
+    ]));
 
-    h.push('<h3>4.1 Resumen de baterías por panel / transponder</h3>');
-    if (!R.paneles.length) h.push('<p class="muted">Sin paneles.</p>');
-    else {
-      h.push('<div class="tabla-wrap"><table class="t"><thead><tr><th>TAG</th><th>Ubicación</th><th class="num">I espera (A)</th><th class="num">I alarma (A)</th><th class="num">t esp. (h)</th><th class="num">t alm. (min)</th>' +
-        '<th class="num">Ah espera</th><th class="num">Ah alarma</th><th class="num">Ah requerido</th><th class="num">Batería (Ah)</th><th>Referencia</th><th>Estado</th></tr></thead><tbody>');
-      R.paneles.forEach(function (x) {
+    // Tabla 2 · baterías de paneles y transponders (el desglose Ah espera / Ah alarma está en el anexo)
+    var colsBat = [{ t: 'TAG', w: 1.8 }, { t: 'ubicación', w: 2 }, { t: 'I espera (A)', w: 1.5, num: true }, { t: 'I alarma (A)', w: 1.5, num: true },
+      { t: 'Ah requerido', w: 1.8, num: true }, { t: 'batería (Ah)', w: 1.5, num: true }, { t: 'referencia', w: 2.8 }, { t: 'estado', w: 1.9 }];
+    var filasBat = R.paneles.map(function (x) {
+      var b = x.r.bat;
+      return [esc(x.p.tag), dato(x.p.nivel), fmt(b.iEsp, 3), fmt(b.iAlm, 3), fmt(b.ahReq, 2), b.ah !== null ? fmt(b.ah, 1) : '—', dato(b.referencia), crit(x.r.estado)];
+    });
+    if (R.paneles.length) {
+      var sBat = 0;
+      R.paneles.forEach(function (x) { sBat += x.r.bat.ah || 0; });
+      filasBat.push({ tot: true, c: [{ h: 'Total sistema', s: 2 }, fmt(R.totalPaneles.iEsp, 3), fmt(R.totalPaneles.iAlm, 3), fmt(R.totalPaneles.ahReq, 2), fmt(sBat, 1), '—', '—'] });
+    }
+    h.push(tablaDoc(ctx, 'Capacidad de baterías por panel y transponder', colsBat, filasBat, 'El proyecto no tiene paneles.'));
+    var dist = R.paneles.filter(function (x) { var q = x.p; return Calc.num(q.tEspera) !== null || Calc.num(q.tAlarma) !== null || Calc.num(q.fs) !== null; });
+    if (dist.length) {
+      h.push('<p class="note">Parámetros propios del equipo: ' + dist.map(function (x) {
         var b = x.r.bat;
-        h.push('<tr><td><b>' + esc(x.p.tag) + '</b></td><td>' + esc(x.p.nivel) + '</td><td class="num">' + fmt(b.iEsp, 3) + '</td><td class="num">' + fmt(b.iAlm, 3) + '</td>' +
-          '<td class="num">' + fmt(b.tEsp, 0) + '</td><td class="num">' + fmt(b.tAlmMin, 0) + '</td><td class="num">' + fmt(b.ahEsp, 2) + '</td><td class="num">' + fmt(b.ahAlm, 2) + '</td>' +
-          '<td class="num"><b>' + fmt(b.ahReq, 2) + '</b></td><td class="num"><b>' + (b.ah !== null ? fmt(b.ah, 1) : '—') + '</b></td><td>' + esc(b.referencia) + '</td><td>' + badge(x.r.estado) + '</td></tr>');
-      });
-      h.push('</tbody><tfoot><tr><td colspan="2">TOTAL SISTEMA</td><td class="num">' + fmt(R.totalPaneles.iEsp, 3) + '</td><td class="num">' + fmt(R.totalPaneles.iAlm, 3) + '</td><td colspan="4"></td>' +
-        '<td class="num">' + fmt(R.totalPaneles.ahReq, 2) + '</td><td colspan="3"></td></tr></tfoot></table></div>');
+        return esc(x.p.tag) + ' (espera ' + fmt(b.tEsp, 0) + ' h, alarma ' + fmt(b.tAlmMin, 0) + ' min, FS ' + fmt(b.fs * 100, 0) + ' %)';
+      }).join('; ') + '.</p>');
     }
 
-    h.push('<h3>4.2 Fuentes de poder auxiliares</h3>');
-    if (!R.fuentes.length) h.push('<p style="color:var(--ink-3)">El proyecto no incluye fuentes auxiliares.</p>');
-    else {
-      h.push('<div class="tabla-wrap"><table class="t"><thead><tr><th>TAG</th><th>Ubicación</th><th>Alimentada desde</th><th class="num">I espera (A)</th><th class="num">I alarma (A)</th><th class="num">80 % I máx (A)</th><th>Verificación</th>' +
-        '<th class="num">Ah requerido</th><th class="num">Batería (Ah)</th><th>Referencia</th><th>Estado</th></tr></thead><tbody>');
-      R.fuentes.forEach(function (x) {
-        var b = x.r.bat;
-        h.push('<tr><td><b>' + esc(x.f.tag) + '</b></td><td>' + esc(x.f.nivel) + '</td><td>' + esc(nombreEquipo(x.f.panelId)) + '</td><td class="num">' + fmt(x.r.iEsp, 3) + '</td><td class="num">' + fmt(x.r.iAlm, 3) + '</td>' +
-          '<td class="num">' + fmt(x.r.iPermitida, 2) + '</td><td>' + badge(x.r.verificacion) + '</td><td class="num"><b>' + fmt(b.ahReq, 2) + '</b></td><td class="num"><b>' + (b.ah !== null ? fmt(b.ah, 1) : '—') + '</b></td>' +
-          '<td>' + esc(b.referencia) + '</td><td>' + badge(x.r.estado) + '</td></tr>');
-      });
-      h.push('</tbody></table></div>');
+    // Tablas 3 y 4 · fuentes auxiliares (partidas en dos para que quepan en carta vertical)
+    var ver = function (x) { return x.r.okCorriente === null ? 'sin I máx.' : (x.r.okCorriente ? 'OK' : '<span class="crit-err">excede</span>'); };
+    h.push(tablaDoc(ctx, 'Fuentes de poder auxiliares — corrientes y verificación del 80 %', [{ t: 'TAG / ubicación', w: 2.2 }, { t: 'alimentada desde', w: 2.4 }, { t: 'I espera (A)', w: 1.6, num: true },
+      { t: 'I alarma (A)', w: 1.6, num: true }, { t: 'I máx. (A)', w: 1.5, num: true }, { t: '80 % I máx. (A)', w: 1.8, num: true }, { t: 'verificación', w: 2.2 }],
+    R.fuentes.map(function (x) {
+      return [esc(x.f.tag) + (x.f.nivel ? '<br>' + esc(x.f.nivel) : ''), dato(nombreEquipo(x.f.panelId)), fmt(x.r.iEsp, 3), fmt(x.r.iAlm, 3), fmt(Calc.num(x.f.iMax), 2), fmt(x.r.iPermitida, 2), ver(x)];
+    }), 'El proyecto no incluye fuentes auxiliares.'));
+    if (R.fuentes.length) {
+      h.push(tablaDoc(ctx, 'Fuentes de poder auxiliares — baterías', [{ t: 'TAG', w: 1.8 }, { t: 'Ah requerido', w: 2 }, { t: 'batería (Ah)', w: 1.8, num: true }, { t: 'referencia', w: 4 }, { t: 'estado', w: 2 }],
+        R.fuentes.map(function (x) {
+          var b = x.r.bat;
+          return [esc(x.f.tag), fmt(b.ahReq, 2), b.ah !== null ? fmt(b.ah, 1) : '—', dato(b.referencia), crit(x.r.estado)];
+        })));
     }
 
-    h.push('<h3>4.3 Caída de tensión</h3>');
+    // Tabla 5 · caída de tensión
     var cds = P.caida.circuitos;
-    if (!cds.length) h.push('<p style="color:var(--ink-3)">Sin circuitos registrados.</p>');
-    else {
-      h.push('<p style="font-size:12.5px; color:var(--ink-2)">Corrientes unitarias: ' + Calc.CATEGORIAS.map(function (c, i) {
+    var estCaida = function (e) { return e ? crit(e.replace(/^ERROR: /, '')) : '—'; };
+    h.push(tablaDoc(ctx, 'Caída de tensión por circuito (carga concentrada)', [{ t: 'fuente / circuito', w: 2 }, { t: 'descripción', w: 2.7 }, { t: 'I (mA)', w: 1.2, num: true },
+      { t: 'cable', w: 2.5 }, { t: 'L (m)', w: 1, num: true }, { t: 'R lazo (Ω)', w: 1.3, num: true }, { t: 'caída (V)', w: 1.2, num: true }, { t: 'V disp. (V)', w: 1.3, num: true },
+      { t: 'caída (%)', w: 1.2, num: true }, { t: 'estado', w: 2 }],
+    cds.map(function (c, i) {
+      var r = R.caida.circuitos[i], cab = S.cx.cables[c.cable];
+      return [dato(nombreEquipo(c.fuente)) + '<br>' + dato(c.circuito), dato(c.desc), fmt(r.iMa, 0), cab ? esc(cab.modelo + ' ' + cab.awg + ' AWG') : '—', fmt(Calc.num(c.long), 0), fmt(r.rLazo, 2),
+        fmt(r.caida, 2), fmt(r.vDisp, 2), r.pct === null ? '—' : fmt(r.pct * 100, 1), estCaida(r.estado)];
+    }), 'Sin circuitos registrados.'));
+    if (cds.length) {
+      h.push('<p class="note">Corrientes unitarias por categoría: ' + Calc.CATEGORIAS.map(function (c, i) {
         var d = S.cx.disp[P.caida.categorias[i]];
-        return '<b>' + esc(c) + '</b> = ' + (d ? esc(d.tag + ' ' + d.modelo) + ' (' + fmt(R.caida.unit[i], 0) + ' mA)' : '—');
-      }).join(' · ') + '</p>');
-      h.push('<div class="tabla-wrap"><table class="t"><thead><tr><th>Fuente</th><th>Circuito</th><th>Descripción</th><th class="num">I (mA)</th><th>Cable</th><th class="num">L (m)</th><th class="num">R lazo (Ω)</th>' +
-        '<th class="num">Caída (V)</th><th class="num">V disp. (V)</th><th class="num">%</th><th>Estado</th><th>Comentario</th></tr></thead><tbody>');
-      cds.forEach(function (c, i) {
-        var r = R.caida.circuitos[i], cab = S.cx.cables[c.cable];
-        h.push('<tr><td>' + esc(nombreEquipo(c.fuente)) + '</td><td>' + esc(c.circuito) + '</td><td>' + esc(c.desc) + '</td><td class="num">' + fmt(r.iMa, 0) + '</td>' +
-          '<td>' + (cab ? esc(cab.modelo + ' ' + cab.awg + ' AWG') : '—') + '</td><td class="num">' + fmt(Calc.num(c.long), 0) + '</td><td class="num">' + fmt(r.rLazo, 2) + '</td>' +
-          '<td class="num">' + fmt(r.caida, 2) + '</td><td class="num"><b>' + fmt(r.vDisp, 2) + '</b></td><td class="num">' + (r.pct === null ? '—' : fmt(r.pct * 100, 1)) + '</td><td>' + badge(r.estado) + '</td><td class="desc">' + esc(r.comentario) + '</td></tr>');
-      });
-      h.push('</tbody><tfoot><tr><td colspan="3">TOTAL</td><td class="num">' + fmt(R.caida.totalA * 1000, 0) + '</td><td colspan="8"></td></tr></tfoot></table></div>');
+        return esc(c) + ' = ' + (d ? esc((d.modelo && d.modelo !== '—' ? d.modelo : d.tag) + ' (' + fmt(R.caida.unit[i], 0) + ' mA)') : '—');
+      }).join('; ') + '.</p>');
     }
 
-    // Resumen de dispositivos
-    var RD = R.dispositivos;
-    h.push('<h3>4.4 Resumen de dispositivos por equipo</h3>');
-    if (!RD.filas.length) h.push('<p style="color:var(--ink-3)">Sin dispositivos registrados.</p>');
-    else {
-      h.push('<div class="tabla-wrap"><table class="t"><thead><tr><th>Circuito</th><th>TAG</th><th>Modelo</th><th>Descripción</th>' +
-        RD.columnas.map(function (c) { return '<th class="num">' + esc(c.tag) + '</th>'; }).join('') + '<th class="num">Total</th></tr></thead><tbody>');
-      RD.filas.forEach(function (f) {
-        h.push('<tr><td class="muted">' + esc(f.disp.circuito) + '</td><td><b>' + esc(f.disp.tag) + '</b></td><td>' + esc(f.disp.modelo) + '</td><td class="desc">' + esc(f.disp.descripcion) + '</td>' +
-          f.cant.map(function (n) { return '<td class="num">' + (n || '') + '</td>'; }).join('') + '<td class="num"><b>' + f.total + '</b></td></tr>');
-      });
-      h.push('</tbody></table></div>');
-    }
+    // Resumen de dispositivos: con más de 4 equipos la matriz por equipo no cabe en carta vertical y se omite (ver anexo)
+    var RD = R.dispositivos, porEquipo = RD.columnas.length <= 4;
+    var colsD = [{ t: 'circuito', w: 2 }, { t: 'código', w: 2.4 }, { t: 'descripción', w: porEquipo ? 4.4 : 8.2 }]
+      .concat(porEquipo ? RD.columnas.map(function (c) { return { t: c.tag, w: 1.7, num: true }; }) : []).concat([{ t: 'total', w: 1.3, num: true }]);
+    h.push(tablaDoc(ctx, 'Resumen de dispositivos' + (porEquipo ? ' por equipo' : ''), colsD, RD.filas.map(function (f) {
+      return [dato(f.disp.circuito), dato(f.disp.modelo), dato(f.disp.descripcion)].concat(porEquipo ? f.cant.map(function (n) { return n ? String(n) : '—'; }) : []).concat([String(f.total)]);
+    }), 'Sin dispositivos registrados.'));
 
-    // Observaciones automáticas
+    // ---- 6. Observaciones
     var obs = [];
     R.paneles.forEach(function (x) {
-      if (x.r.bat.excede) obs.push('<b>' + esc(x.p.tag) + '</b>: la capacidad requerida (' + fmt(x.r.bat.ahReq, 1) + ' Ah) excede la mayor batería del catálogo.');
-      if (x.r.errores) obs.push('<b>' + esc(x.p.tag) + '</b>: ' + x.r.errores + ' fila(s) de dispositivos con error.');
-      if (x.r.bat.bateria && x.r.bat.bateria.obs) obs.push('<b>' + esc(x.p.tag) + '</b>: batería ' + fmt(x.r.bat.ah, 1) + ' Ah — ' + esc(x.r.bat.bateria.obs) + '.');
+      if (x.r.bat.excede) obs.push(esc(x.p.tag) + ': la capacidad requerida (' + fmt(x.r.bat.ahReq, 1) + ' Ah) excede la mayor batería del catálogo.');
+      if (x.r.errores) obs.push(esc(x.p.tag) + ': ' + x.r.errores + ' fila(s) de dispositivos con error.');
+      if (x.r.bat.bateria && x.r.bat.bateria.obs) obs.push(esc(x.p.tag) + ': batería de ' + fmt(x.r.bat.ah, 1) + ' Ah — ' + esc(x.r.bat.bateria.obs) + '.');
     });
     R.fuentes.forEach(function (x) {
-      if (x.r.okCorriente === false) obs.push('<b>' + esc(x.f.tag) + '</b>: la corriente de alarma excede el 80 % de la capacidad de la fuente.');
-      if (x.r.bat.excede) obs.push('<b>' + esc(x.f.tag) + '</b>: la capacidad requerida excede la mayor batería del catálogo.');
-      if (x.r.errores) obs.push('<b>' + esc(x.f.tag) + '</b>: ' + x.r.errores + ' fila(s) de dispositivos con error.');
+      if (x.r.okCorriente === false) obs.push(esc(x.f.tag) + ': la corriente de alarma excede el 80 % de la capacidad de la fuente.');
+      if (x.r.bat.excede) obs.push(esc(x.f.tag) + ': la capacidad requerida excede la mayor batería del catálogo.');
+      if (x.r.errores) obs.push(esc(x.f.tag) + ': ' + x.r.errores + ' fila(s) de dispositivos con error.');
     });
     R.caida.circuitos.forEach(function (r, i) {
       var c = cds[i];
-      if (r.estado && r.estado !== 'OK') obs.push('<b>' + esc(nombreEquipo(c.fuente) + ' ' + (c.circuito || '#' + (i + 1))) + '</b>: ' + esc(r.estado) + (r.comentario ? ' — ' + esc(r.comentario) : '') + '.');
+      if (r.estado && r.estado !== 'OK') obs.push(esc(nombreEquipo(c.fuente) + ' ' + (c.circuito || '#' + (i + 1))) + ': ' + esc(r.estado) + (r.comentario ? ' — ' + esc(r.comentario.toLowerCase()) : '') + '.');
     });
-    h.push('<h3>4.5 Observaciones</h3>' + (obs.length ? '<ul>' + obs.map(function (o) { return '<li>' + o + '</li>'; }).join('') + '</ul>' : '<p>Sin observaciones: todos los equipos y circuitos cumplen.</p>'));
+    h.push('<h2>6. Observaciones</h2>' + (obs.length ? '<ul>' + obs.map(function (o) { return '<li>' + o + '</li>'; }).join('') + '</ul>' : '<p>Sin observaciones: todos los equipos y circuitos cumplen.</p>'));
 
-    // Anexo detalle
+    // ---- Anexo A
     if (detalle && (R.paneles.length || R.fuentes.length)) {
       h.push('<h2>Anexo A. Detalle de cargas por equipo</h2>');
       R.paneles.map(function (x) { return { e: x.p, r: x.r, f: false }; }).concat(R.fuentes.map(function (x) { return { e: x.f, r: x.r, f: true }; })).forEach(function (x) {
-        h.push('<h3>' + esc(x.e.tag) + (x.e.nivel ? ' · ' + esc(x.e.nivel) : '') + (x.f ? ' (fuente auxiliar)' : '') + '</h3>');
-        h.push('<div class="tabla-wrap"><table class="t"><thead><tr><th>TAG</th><th>Modelo</th><th>Descripción</th><th>Nivel / zona</th><th class="num">Cant.</th><th class="num">I esp. unit. (mA)</th><th class="num">I esp. total (A)</th><th class="num">I alm. unit. (mA)</th><th class="num">I alm. total (A)</th></tr></thead><tbody>');
+        var b = x.r.bat, filas = [];
         x.e.filas.forEach(function (f, i) {
           var fr = x.r.filas[i], d = S.cx.disp[f.disp];
           if (!f.disp && Calc.num(f.cant) === null) return;
-          h.push('<tr><td>' + esc(fr.tag) + '</td><td>' + esc(d ? d.modelo : '') + '</td><td class="desc">' + esc(fr.descripcion) + '</td><td>' + esc(f.zona) + '</td><td class="num">' + fmt(Calc.num(f.cant), 0) + '</td>' +
-            '<td class="num">' + fmt(fr.iEspU, 2) + (Calc.num(f.iEsp) !== null ? '*' : '') + '</td><td class="num">' + fmt(fr.iEspT, 4) + '</td><td class="num">' + fmt(fr.iAlmU, 2) + (Calc.num(f.iAlm) !== null ? '*' : '') + '</td><td class="num">' + fmt(fr.iAlmT, 4) + '</td></tr>');
+          filas.push([dato(d ? (d.modelo && d.modelo !== '—' ? d.modelo : d.tag) : ''), dato(fr.descripcion), dato(f.zona), fmt(Calc.num(f.cant), 0),
+            fmt(fr.iEspU, 2) + (Calc.num(f.iEsp) !== null ? '*' : ''), fmt(fr.iEspT, 4), fmt(fr.iAlmU, 2) + (Calc.num(f.iAlm) !== null ? '*' : ''), fmt(fr.iAlmT, 4)]);
         });
-        var b = x.r.bat;
-        h.push('</tbody><tfoot><tr><td colspan="6">TOTALES' + (x.f ? ' (incl. consumo propio ' + fmt(Calc.num(x.e.iPropia) || 0, 3) + ' A)' : '') + '</td><td class="num">' + fmt(x.r.iEsp, 4) + '</td><td></td><td class="num">' + fmt(x.r.iAlm, 4) + '</td></tr></tfoot></table></div>');
-        h.push('<p style="font-size:12.5px">Ah = ' + fmt(b.iEsp, 4) + ' A × ' + fmt(b.tEsp, 0) + ' h + ' + fmt(b.iAlm, 4) + ' A × ' + fmt(b.tAlmMin, 0) + '/60 h = ' + fmt(b.ahCalc, 3) + ' Ah; × (1 + ' + fmt(b.fs * 100, 0) + ' %) = <b>' +
-          fmt(b.ahReq, 3) + ' Ah</b> → batería seleccionada <b>' + (b.ah !== null ? fmt(b.ah, 1) + ' Ah (' + esc(b.referencia) + ')' : 'EXCEDE CATÁLOGO') + '</b>.</p>');
+        if (filas.length) filas.push({ tot: true, c: [{ h: 'Totales' + (x.f ? ' (incluye consumo propio ' + fmt(Calc.num(x.e.iPropia) || 0, 3) + ' A)' : ''), s: 5 }, fmt(x.r.iEsp, 4), '—', fmt(x.r.iAlm, 4)] });
+        h.push(tablaDoc(ctx, 'Detalle de cargas — ' + x.e.tag + (x.e.nivel ? ' · ' + x.e.nivel : '') + (x.f ? ' (fuente auxiliar)' : ''),
+          [{ t: 'código', w: 2.2 }, { t: 'descripción', w: 4.2 }, { t: 'nivel / zona', w: 2.6 }, { t: 'cant.', w: 1, num: true }, { t: 'I esp. unit. (mA)', w: 1.3, num: true },
+            { t: 'I esp. total (A)', w: 1.4, num: true }, { t: 'I alm. unit. (mA)', w: 1.3, num: true }, { t: 'I alm. total (A)', w: 1.4, num: true }], filas, 'Sin dispositivos.'));
+        h.push('<p>Ah = ' + fmt(b.iEsp, 4) + ' A × ' + fmt(b.tEsp, 0) + ' h + ' + fmt(b.iAlm, 4) + ' A × ' + fmt(b.tAlmMin, 0) + '/60 h = ' + fmt(b.ahCalc, 3) + ' Ah; × (1 + ' + fmt(b.fs * 100, 0) + ' %) = ' +
+          fmt(b.ahReq, 3) + ' Ah, con batería seleccionada de ' + (b.ah !== null ? fmt(b.ah, 1) + ' Ah (' + esc(b.referencia) + ')' : '<span class="crit-err">capacidad que excede el catálogo</span>') + '.</p>');
       });
-      h.push('<p style="font-size:11.5px; color:var(--ink-3)">* Corriente unitaria digitada manualmente (reemplaza el valor de catálogo).</p>');
+      h.push('<p class="note">* Corriente unitaria digitada manualmente (reemplaza el valor de catálogo).</p>');
     }
 
-    h.push('<div class="nota-final"><b>NOTA:</b> Memoria de cálculo de ingeniería. Los valores de corriente de dispositivos y resistencia de cables provienen de fichas técnicas y deben verificarse contra la revisión vigente antes de construcción. ' +
-      'Aprobación final: AHJ (Ingeniería de Bomberos de Costa Rica). Catálogo actualizado: ' + esc(S.cat.actualizado || '') + '.</div>');
+    h.push('<p class="note">Memoria de cálculo de ingeniería. Los valores de corriente de dispositivos y resistencia de cables provienen de fichas técnicas y deben verificarse contra la revisión vigente antes de construcción. ' +
+      'Aprobación final: AHJ (Ingeniería de Bomberos de Costa Rica). Catálogo actualizado: ' + esc(S.cat.actualizado || '') + '.</p>');
     h.push('</article>');
     vista.innerHTML = h.join('');
   }
@@ -998,7 +1041,7 @@
         : 'En esta fase el catálogo se guarda en este navegador; use «Respaldo» para exportarlo y compartirlo.') + '</div>');
     if (S.cat.sinSemilla) {
       h.push('<div class="alerta-admin" style="background:var(--err-bg); border-color:#f2b8b8; color:var(--err)"><b>La base de datos no tiene catálogo.</b> ' +
-        'Se está mostrando el catálogo del Excel. <button class="btn btn-sm btn-primary" data-act="cat-semilla">Cargar catálogo base a Supabase</button></div>');
+        'Se está mostrando el catálogo del Excel. <button class="btn btn-sm primary" data-act="cat-semilla">Cargar catálogo base a Supabase</button></div>');
     }
     h.push('<div class="subtabs">' + SUBS.map(function (s) {
       var n = S.cat[s.id] ? ' (' + S.cat[s.id].length + ')' : '';
@@ -1010,7 +1053,7 @@
       h.push('<section class="card"><div class="card-h"><h3>Respaldo del catálogo</h3><span class="nota">Actualizado: ' + esc(S.cat.actualizado || '—') + '</span></div><div class="card-b" style="display:flex; gap:8px; flex-wrap:wrap">' +
         '<button class="btn" data-act="cat-exportar">Exportar catálogo (.json)</button>' +
         '<button class="btn" data-act="cat-importar">Importar catálogo (.json)</button>' +
-        '<button class="btn btn-danger" data-act="cat-restablecer">Restablecer catálogo base (Excel)</button></div></section>' +
+        '<button class="btn danger" data-act="cat-restablecer">Restablecer catálogo base (Excel)</button></div></section>' +
         (REMOTO ? '' : '<section class="card"><div class="card-h"><h3>PIN de administrador</h3></div><div class="card-b"><p style="margin-top:0; color:var(--ink-2)">El PIN solo protege la interfaz en este navegador. Con Supabase configurado se reemplaza por usuarios con rol «admin» y políticas RLS.</p>' +
         '<button class="btn" data-act="pin-cambiar">Cambiar PIN</button></div></section>'));
       vista.innerHTML = h.join('');
@@ -1046,7 +1089,7 @@
       h.push('<h3>' + esc(SUBS.filter(function (s) { return s.id === sub; })[0].l) + '</h3>');
     }
     if (sub === 'baterias') h.push('<span class="nota">Se ordenan de menor a mayor: la selección toma la capacidad inmediata superior</span>');
-    h.push('<button class="btn btn-primary btn-sm" data-act="cat-add">+ Agregar</button></div><div class="card-b flush tabla-wrap"><table class="t"><thead><tr>' +
+    h.push('<button class="btn primary btn-sm" data-act="cat-add">+ Agregar</button></div><div class="card-b flush tabla-wrap"><table class="t"><thead><tr>' +
       cols.map(function (c) { return '<th' + (c.t ? ' class="num"' : '') + '>' + esc(c.l) + '</th>'; }).join('') + (sub === 'fabricantes' ? '<th class="num">Dispositivos</th>' : '') + '<th></th></tr></thead><tbody>');
     lista.forEach(function (x) {
       h.push('<tr data-row="' + esc(x.id) + '" data-fab="' + esc(x.fabricante || '') + '">');
@@ -1616,7 +1659,7 @@
       (reg ? '<label class="campo"><span>Nombre</span><input name="nombre" required autocomplete="name"></label>' : '') +
       '<label class="campo"><span>Correo</span><input name="email" type="email" required autocomplete="username"></label>' +
       '<label class="campo"><span>Contraseña' + (reg ? ' (mín. 8 caracteres)' : '') + '</span><input name="clave" type="password" required minlength="' + (reg ? 8 : 1) + '" autocomplete="' + (reg ? 'new-password' : 'current-password') + '"></label>' +
-      '<button class="btn btn-primary" type="submit">' + (reg ? 'Registrarme' : 'Entrar') + '</button>' +
+      '<button class="btn primary" type="submit">' + (reg ? 'Registrarme' : 'Entrar') + '</button>' +
       '<div style="display:flex; justify-content:space-between; font-size:13px">' +
       '<a href="#" data-modo="' + (reg ? 'login' : 'registro') + '">' + (reg ? 'Ya tengo cuenta' : 'Crear cuenta') + '</a>' +
       (reg ? '' : '<a href="#" data-modo="recuperar">Olvidé mi contraseña</a>') + '</div></form>' +
@@ -1663,12 +1706,18 @@
     var u = Auth.usuario();
     vista.innerHTML = '<div class="acceso"><div class="card"><div class="card-h"><h3>Cuenta pendiente de aprobación</h3></div><div class="card-b">' +
       '<p style="margin-top:0">Su cuenta <b>' + esc(u ? u.email : '') + '</b> está registrada, pero un administrador debe activarla para que pueda ver los proyectos.</p>' +
-      '<div style="display:flex; gap:8px"><button class="btn btn-primary" id="btnReintentar">Ya me activaron — reintentar</button><button class="btn" id="btnSalirPend">Cerrar sesión</button></div></div></div></div>';
+      '<div style="display:flex; gap:8px"><button class="btn primary" id="btnReintentar">Ya me activaron — reintentar</button><button class="btn" id="btnSalirPend">Cerrar sesión</button></div></div></div></div>';
     document.getElementById('btnReintentar').addEventListener('click', function () { iniciarApp(); });
     document.getElementById('btnSalirPend').addEventListener('click', function () { Auth.salir(); });
   }
 
   /* ======================= inicio ======================= */
+  /* Enlace directo a una sección: index.html#memoria, #caida o #proyecto */
+  function tabInicial() {
+    var h = String(location.hash || '').slice(1);
+    return ['proyecto', 'caida', 'memoria'].indexOf(h) >= 0 ? h : undefined;
+  }
+
   function cargarDatos() {
     return Store.getCatalogo().then(function (cat) {
       S.cat = cat;
@@ -1682,7 +1731,7 @@
       return id ? Store.getProyecto(id) : null;
     }).then(function (p) {
       renderAdminBtn();
-      if (p) return abrirProyecto(p);
+      if (p) return abrirProyecto(p, tabInicial());
       S.proy = nuevoProyecto();
       // Primer uso: proyecto en blanco con un solo nivel. El ejemplo del Excel está en el menú «Proyecto».
       return abrirProyecto(proyectoConPrimerNivel('Proyecto nuevo', 'NIVEL 1'));

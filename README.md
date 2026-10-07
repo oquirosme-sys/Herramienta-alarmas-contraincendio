@@ -26,6 +26,16 @@ El menú **Proyecto ▾** permite crear, duplicar, exportar/importar (.json) y e
 Si el Ah requerido supera la mayor batería del catálogo, el Excel devolvía en silencio la batería **más pequeña** (6.2 Ah).
 La herramienta lo marca como **REVISAR — excede catálogo**.
 
+## Aspecto y formato Sinergia
+
+- **Sinergia Suite** (`css/suite-*.css`): barra de vidrio con tesela, «← Suite» primero a la izquierda, secciones segmentadas y color por aplicación
+  (`<body data-app="alarmas-ci">`). Los colores de estado (rojo, ámbar, verde) no se tocan. Tipografía Montserrat.
+  **Pendiente:** el color `alarmas-ci` (violeta) es provisional — conciliarlo con el registro oficial del Suite (`paleta.md`) — y falta definir `suiteUrl` en `js/config.js`.
+- **Memoria de cálculo impresa** (formato Sinergia): hoja carta, márgenes 3,0 / 2,5 cm, logo y dirección en el encabezado, pie de tres celdas
+  (nombre del documento · web y correo · página), Montserrat 11 pt justificado, títulos en negrita sin regla, tablas «Tabla No. N» con solo reglas horizontales,
+  anchos declarados, sin celdas en blanco («—») y color solo en la criticidad. Se verificó en el PDF (no en pantalla).
+- Enlace directo a una sección: `index.html#memoria` (también `#caida`, `#proyecto`).
+
 ## Validación contra la simbología CDCLH-001S
 
 El catálogo se validó contra la lámina de simbología de Circuito S.A. (versiones Simplex y Notifier): se agregaron los dispositivos que faltaban

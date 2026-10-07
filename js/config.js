@@ -6,6 +6,8 @@
  * La clave «anon» es pública por diseño (va en el navegador); la seguridad la dan las políticas RLS
  * de supabase/01_esquema.sql. NUNCA coloque aquí la clave «service_role». */
 window.APP_CONFIG = {
+  // Dirección del portal Sinergia Suite para el enlace «← Suite» (pendiente de definir)
+  suiteUrl: '',
   supabaseUrl: '',
   supabaseAnonKey: ''
 };

@@ -1,0 +1,87 @@
+/* Capa 3 · suite-mac.css — de qué estoy hecho.
+   Materialidad del Suite: tesela squircle con luz física, vidrio translúcido,
+   fondo con dos lavados de color y movimiento con inercia. */
+
+:root {
+  --inercia: cubic-bezier(.34, 1.4, .64, 1);
+  --suave: cubic-bezier(.25, .8, .25, 1);
+  --fondo-suite: #fbfbfd;
+  --vidrio: rgba(251, 251, 253, .72);
+  --vidrio-borde: rgba(0, 0, 0, .08);
+  --sombra-flota: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px rgba(0, 0, 0, .06);
+  --radio-suite: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fondo-suite: #16181d;
+    --vidrio: rgba(30, 32, 38, .72);
+    --vidrio-borde: rgba(255, 255, 255, .08);
+    --sombra-flota: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  }
+}
+
+/* Fondo: no blanco puro; dos lavados tenues para que el desenfoque se perciba */
+body {
+  background-color: var(--fondo-suite);
+  background-image:
+    radial-gradient(60% 45% at 0% 0%, var(--app-suave, transparent), transparent 70%),
+    radial-gradient(45% 40% at 100% 0%, rgba(120, 140, 170, .10), transparent 70%);
+  background-attachment: fixed;
+}
+
+/* 1 · La tesela con hombro: figura sólida, glifo blanco encima */
+.tesela {
+  width: 40px; height: 40px; flex: none; display: grid; place-items: center;
+  border-radius: 23%; corner-shape: squircle;
+  color: var(--app-tinta, #fff);
+  background: linear-gradient(180deg, var(--app-claro), var(--app-oscuro));
+  /* 2 · Luz física: filo de luz superior y sombra teñida del propio color */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), inset 0 -1px 0 rgba(0, 0, 0, .15),
+    0 4px 12px var(--app-sombra);
+  transition: transform .45s var(--inercia);
+}
+.tesela:hover { transform: scale(1.07) translateY(-1px); }
+.tesela svg { width: 62%; height: 62%; }
+
+/* 3 · Material translúcido */
+.vidrio {
+  background: var(--vidrio);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--vidrio-borde);
+}
+
+/* Superficies de contenido: flotan sobre el fondo */
+.card { border-radius: var(--radio-suite); border-color: var(--vidrio-borde); box-shadow: var(--sombra-flota); }
+.modal-back { background: rgba(20, 24, 32, .28); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.modal {
+  border-radius: 16px; background: var(--vidrio); border: 1px solid var(--vidrio-borde);
+  -webkit-backdrop-filter: saturate(180%) blur(24px); backdrop-filter: saturate(180%) blur(24px);
+  animation: aparecer .4s var(--inercia);
+}
+.modal h3 { color: var(--app); }
+.toast {
+  background: rgba(30, 32, 38, .82); color: #fff; border-radius: 12px;
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  animation: aparecer-aviso .4s var(--inercia);
+}
+
+/* 4 · Movimiento con inercia */
+.btn { border-radius: 8px; transition: transform .35s var(--inercia), background .2s var(--suave), box-shadow .2s var(--suave); }
+.btn:active { transform: scale(.96); }
+.btn.primary {
+  background: linear-gradient(180deg, var(--app-claro), var(--app));
+  border-color: var(--app-oscuro);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 2px 6px var(--app-sombra);
+}
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(6px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes aparecer-aviso {
+  from { opacity: 0; transform: translate(-50%, 8px) scale(.98); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

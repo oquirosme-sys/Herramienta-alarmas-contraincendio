@@ -1,0 +1,35 @@
+/* Capa 2 · suite-color.css — quién soy.
+   Registro de color por aplicación de Sinergia Suite: cada página declara <body data-app="…">
+   y la tesela, el título de la barra, el botón primario, el anillo de foco y las cabeceras
+   de tabla y de modal leen var(--app).
+   El color identifica; NO se usa para estados (error/advertencia/correcto conservan sus colores).
+   NOTA: este proyecto no tiene copia de references/paleta.md. El valor de "alarmas-ci" es PROVISIONAL
+   (violeta, para no chocar con el azul de las herramientas eléctricas ni con el rojo/ámbar/verde de estado)
+   y debe conciliarse con el registro oficial del Suite antes de publicar el portal. */
+
+[data-app] {
+  --app-tinta: #ffffff;
+  /* las piezas de contenido (botón primario, foco, enlaces) siguen al color de la app */
+  --primary: var(--app);
+  --primary-ink: var(--app-tinta);
+  --primary-soft: var(--app-suave);
+}
+
+/* Portal (neutro) */
+[data-app="suite"] {
+  --app: #3a3f4b; --app-claro: #5a6070; --app-oscuro: #262a33;
+  --app-suave: #eceef2; --app-sombra: rgba(38, 42, 51, .35);
+}
+
+/* Baterías y caída de tensión — alarma contra incendio (provisional) */
+[data-app="alarmas-ci"] {
+  --app: #6b46c1; --app-claro: #8a68dc; --app-oscuro: #4f31a3;
+  --app-suave: #efeafb; --app-sombra: rgba(107, 70, 193, .38);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) [data-app="alarmas-ci"] {
+    --app: #a78bfa; --app-claro: #b9a1fb; --app-oscuro: #6d4fd0; --app-suave: #241b44; --app-tinta: #ffffff;
+    --primary-ink: #120c26;
+  }
+}

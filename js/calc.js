@@ -74,7 +74,7 @@
     if (!vacia) {
       if (!f.disp) { r.aviso = 'Elija el modelo'; r.nivel = 'error'; }
       else if (!d) { r.aviso = 'El modelo ya no está en el catálogo'; r.nivel = 'error'; }
-      else if (iEspU === null || iAlmU === null) { r.aviso = 'Corriente sin definir en el catálogo: digítela en la fila (columnas de corriente)'; r.nivel = 'error'; }
+      else if (iEspU === null || iAlmU === null) { r.aviso = 'Corriente sin definir: digítela en la fila'; r.nivel = 'error'; }
       else if (cant === null || cant <= 0) { r.aviso = 'Digite la cantidad'; r.nivel = 'warn'; }
     }
     return r;

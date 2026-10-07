@@ -1,0 +1,60 @@
+/* Capa 4 · suite-app.css — cómo me organizo (armazón de una aplicación del Suite).
+   Misma disposición en todas las apps: «← Suite» primero a la izquierda, tesela,
+   nombre de la app en su color, acciones a la derecha y las secciones debajo. */
+
+.barra { position: sticky; top: 0; z-index: 30; }
+.barra-in {
+  max-width: 1600px; margin: 0 auto; padding: 10px 16px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+}
+.barra-secciones { padding-top: 0; }
+.volver-suite {
+  color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13px;
+  padding: 5px 9px; border-radius: 8px; white-space: nowrap;
+  transition: background .2s var(--suave), color .2s var(--suave);
+}
+.volver-suite:hover { background: rgba(120, 120, 128, .14); color: var(--text); }
+.app-id { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.app-nombre { color: var(--app); font-weight: 700; font-size: 16px; line-height: 1.2; margin: 0; }
+.app-sub { color: var(--muted); font-size: 12px; }
+.barra .spacer { flex: 1; }
+.barra .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.barra .toolbar .field > span { color: var(--muted); }
+.barra a.btn { text-decoration: none; }
+.save-state { font-size: 12px; color: var(--muted); min-width: 80px; text-align: right; }
+
+/* Secciones: control segmentado sobre vidrio (reemplaza .nav-tabs de la banda petróleo) */
+.secciones {
+  display: flex; gap: 2px; padding: 3px; border-radius: 10px; overflow-x: auto; max-width: 100%;
+  background: rgba(120, 120, 128, .12); scrollbar-width: thin;
+}
+.seccion {
+  border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px;
+  padding: 6px 14px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background .25s var(--suave), color .25s var(--suave), transform .4s var(--inercia);
+}
+.seccion:hover { background: rgba(120, 120, 128, .12); }
+.seccion:active { transform: scale(.95); }
+.seccion.activa {
+  background: var(--surface); color: var(--app); font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12), 0 0 0 .5px rgba(0, 0, 0, .04);
+}
+.seccion.nivel { font-variant-numeric: tabular-nums; }
+.seccion-sep { width: 1px; background: rgba(120, 120, 128, .3); margin: 6px 4px; flex: none; }
+/* indicadores de estado: conservan rojo / ámbar, no el color de la app */
+.seccion .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--err); }
+.seccion .dot.warn { background: var(--warn); }
+
+.pagina { padding: 16px; max-width: 1600px; margin: 0 auto; }
+.pie { text-align: center; color: var(--muted); font-size: 12px; padding: 16px; }
+
+@media (max-width: 700px) {
+  .barra-in { padding: 8px 10px; }
+  .pagina { padding: 10px; }
+  .save-state { text-align: left; }
+}
+@media print {
+  .barra, .pie { display: none !important; }
+  body { background: #fff; }
+}
