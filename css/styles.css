@@ -18,7 +18,8 @@
   --warn-soft: #fff2d6;
   --err: #b42318;
   --err-soft: #fde7e5;
-  --input-bg: #ffffff;
+  --input-bg: #e8f5e9;
+  --input-line: #a5d6a7;
   --calc-bg: #f1f4f7;
   --radius: 8px;
   --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -29,7 +30,7 @@
     --bg: #12171d; --surface: #1a2129; --surface-2: #202832; --border: #313b47; --border-strong: #46525f;
     --text: #e4e9ee; --muted: #9aa7b4; --primary-soft: #241b44;
     --ok: #5cc98a; --ok-soft: #173426; --warn: #f0b44c; --warn-soft: #3a2d12; --err: #f2766b; --err-soft: #3d1b18;
-    --input-bg: #11161c; --calc-bg: #222b35;
+    --input-bg: #1a2c20; --input-line: #3d6b49; --calc-bg: #222b35;
   }
 }
 
@@ -112,7 +113,7 @@ button { cursor: pointer; }
 .campo > span { font-size: 12px; color: var(--muted); font-weight: 500; }
 .campo small { color: var(--muted); font-size: 11px; }
 .in, .campo input, .campo select, .campo textarea, .field select, .field input {
-  color: var(--text); background: var(--input-bg); border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 8px; width: 100%; min-width: 0;
+  color: var(--text); background: var(--input-bg); border: 1px solid var(--input-line); border-radius: 6px; padding: 6px 8px; width: 100%; min-width: 0;
 }
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field > span { font-size: 12px; color: var(--muted); }
@@ -121,8 +122,8 @@ button { cursor: pointer; }
 }
 input[type="number"] { font-variant-numeric: tabular-nums; }
 input[type="checkbox"] { width: 16px; height: 16px; }
-input::placeholder { color: var(--muted); opacity: .75; }
-.barra .field select { width: auto; max-width: 320px; }
+input::placeholder { color: var(--muted); opacity: .5; font-style: italic; }   /* ejemplo tenue: desaparece al escribir */
+.barra .field select { width: auto; max-width: 320px; background: var(--surface); border-color: var(--border-strong); }   /* selector de proyecto: no es un campo de captura */
 
 /* ---------- Tablas de la aplicación ---------- */
 .tabla-wrap { overflow-x: auto; }

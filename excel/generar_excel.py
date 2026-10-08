@@ -25,7 +25,6 @@ _src = io.open(os.path.join(RAIZ, 'js', 'catalogo-base.js'), encoding='utf-8').r
 _body = _src[_src.index('{', _src.index('CATALOGO_BASE')):_src.rindex('}') + 1]
 CAT = json.loads(re.sub(r'^(\s*)(\w+):', r'\1"\2":', _body, flags=re.M))
 FAB = {f['id']: f['nombre'] for f in CAT['fabricantes']}
-CATEGORIAS = ['CAT. 1 (típ. 15 cd)', 'CAT. 2 (típ. 30 cd)', 'CAT. 3 (típ. 75 cd)', 'CAT. 4 (típ. 110 cd)', 'BASE AUDIBLE / OTRO']
 
 
 def fab_key(fid):
@@ -67,7 +66,7 @@ F_T = Font(name=ARIAL, size=14, bold=True, color=NAVY)
 F_S = Font(name=ARIAL, size=9, italic=True, color='666666')
 FILL_H = PatternFill('solid', fgColor=NAVY)
 FILL_SEC = PatternFill('solid', fgColor='DCE6F2')
-FILL_IN = PatternFill('solid', fgColor='EEF8EF')     # entrada manual (verde, como el Excel original)
+FILL_IN = PatternFill('solid', fgColor='E8F5E9')     # entrada manual (verde, como el Excel original)
 FILL_OV = PatternFill('solid', fgColor='FFF4D6')     # reemplazo manual de corriente (amarillo)
 FILL_CALC = PatternFill('solid', fgColor='F4F6F9')
 FILL_RES = PatternFill('solid', fgColor='E6F4EA')
@@ -127,6 +126,21 @@ def dv_lista(ws, formula, rango, estricta=True):
     dv.add(rango)
 
 
+def pista(ws, rango, titulo, texto):
+    """Ejemplo tenue: mensaje que aparece al seleccionar la celda (no ocupa la celda, que queda limpia)."""
+    dv = DataValidation(allow_blank=True)
+    dv.showInputMessage = True
+    dv.promptTitle = titulo[:32]
+    dv.prompt = texto[:255]
+    ws.add_data_validation(dv)
+    dv.add(rango)
+
+
+def pista_texto(ws, ref, texto):
+    """Línea de ejemplo en gris tenue (cursiva); no participa en ningún cálculo."""
+    put(ws, ref, texto, Font(name=ARIAL, size=9, italic=True, color='9AA5B1'))
+
+
 def cf_estado(ws, rango, ref):
     ws.conditional_formatting.add(rango, FormulaRule(formula=['LEFT(%s,2)="OK"' % ref], font=Font(name=ARIAL, bold=True, color='1A7F37'), fill=PatternFill('solid', bgColor='E6F4EA')))
     ws.conditional_formatting.add(rango, FormulaRule(formula=['OR(LEFT({0},5)="ERROR",LEFT({0},7)="REVISAR")'.format(ref)], font=Font(name=ARIAL, bold=True, color='C62828'), fill=PatternFill('solid', bgColor='FDE8E8')))
@@ -146,6 +160,8 @@ LISTA_NIVELES = 'OFFSET(PROYECTO!$B$%d,0,0,MAX(1,COUNTA(PROYECTO!$B$%d:$B$%d)),1
 LISTA_DISP_TODOS = 'OFFSET(BD_DISPOSITIVOS!$B$6,0,0,COUNTA(BD_DISPOSITIVOS!$D$6:$D$%d),1)' % NMAX_DISP
 LISTA_CABLES = 'OFFSET(BD_CABLES!$B$6,0,0,COUNTA(BD_CABLES!$D$6:$D$%d),1)' % NMAX_CAB
 LISTA_EQUIPOS = 'PROYECTO!$C$%d:$C$%d' % TAB
+LISTA_LAZOS = 'OFFSET(CAIDA_TENSION!$U$16,0,0,MAX(1,COUNTIF(CAIDA_TENSION!$U$16:$U$45,"?*")),1)'
+TIPOS_LAZO_XL = 'SLC,NAC,IDNAC,24VDC,VOCEO,IDC'
 
 
 def lista_modelos(fila):
@@ -223,7 +239,7 @@ def hoja_proyecto(wb, datos, hojas_equipos):
     put(ws, 'B3', 'Celdas VERDES = entrada manual · grises = cálculo automático. Cada panel/transponder y cada fuente tiene su propia hoja (ver INSTRUCCIONES).', F_S)
     seccion(ws, 4, 'INFORMACIÓN DEL PROYECTO', 2, 5)
     campos = [('NOMBRE DEL PROYECTO', datos['nombre']), ('N.º DE PROYECTO', datos['numero']), ('CLIENTE', ''), ('UBICACIÓN', ''),
-              ('ELABORÓ', ''), ('REVISÓ', ''), ('EMPRESA', 'Sinergia Ingeniería'), ('FECHA', ''), ('REVISIÓN', '0'),
+              ('ELABORÓ', ''), ('REVISÓ', ''), ('EMPRESA', 'Sinergia Ingeniería'), ('FECHA', ''), ('REVISIÓN', 0),
               ('NORMATIVA', 'NFPA 72:2022 · UL 864 · NEC (NFPA 70) Art. 760')]
     for i, (k, v) in enumerate(campos):
         r = 5 + i
@@ -233,6 +249,13 @@ def hoja_proyecto(wb, datos, hojas_equipos):
         inp(ws, 'E%d' % r)
         ws.merge_cells('C%d:E%d' % (r, r))
     ws['C12'].number_format = 'yyyy-mm-dd'
+    if datos.get('pistas'):
+        for fila_, tit, txt in [(5, 'Nombre del proyecto', 'Ej.: Torre Central — Fase 2'), (6, 'N.º de proyecto', 'Ej.: P-2026-014'), (7, 'Cliente', 'Ej.: Desarrolladora XYZ S.A.'),
+                                (8, 'Ubicación', 'Ej.: Escazú, San José'), (9, 'Elaboró', 'Ej.: nombre de quien elabora la memoria'), (10, 'Revisó', 'Ej.: nombre de quien revisa'),
+                                (12, 'Fecha', 'Ej.: 2026-10-07'), (13, 'Revisión', 'Ej.: 0, A, B…')]:
+            pista(ws, 'C%d:E%d' % (fila_, fila_), tit, txt)
+        pista(ws, 'B%d:B%d' % NIV, 'Niveles', 'Ej.: SÓTANO 1, NIVEL 1, NIVEL 2, AZOTEA (uno por fila)')
+        pista(ws, 'B%d:B%d' % TAB, 'Hoja del equipo', 'Escriba el nombre exacto de la pestaña del panel, transponder o fuente (ej.: BAT_TRP_N2)')
     seccion(ws, 4, 'PARÁMETROS NFPA 72', 7, 9)
     pars = [('TIEMPO DE ESPERA (h)', 24, '0', '§10.6.7.2.1: 24 h'), ('TIEMPO DE ALARMA (min)', 15, '0', '5 min alarma · 15 min voceo/EVACS'),
             ('FACTOR DE SEGURIDAD', 0.2, '0%', 'Envejecimiento de baterías (fichas)'), ('TENSIÓN NOMINAL (V)', 24, '0.0', ''),
@@ -330,7 +353,7 @@ def hoja_equipo(wb, nombre, eq):
         put(ws, 'F11', 'Consumo propio del módulo según ficha; se suma en espera y en alarma', F_S)
 
     header(ws, 13, 2, ['FABRICANTE', 'MODELO  (código · qué es — descripción)', 'TAG', 'TIPO (qué es)', 'NIVEL / ZONA', 'CANT.', 'I ESPERA UNIT. (mA)', 'I ESPERA TOTAL (A)',
-                       'I ALARMA UNIT. (mA)', 'I ALARMA TOTAL (A)', 'OBSERVACIÓN', 'I ESPERA MANUAL (mA)', 'I ALARMA MANUAL (mA)', 'AVISO'], 44)
+                       'I ALARMA UNIT. (mA)', 'I ALARMA TOTAL (A)', 'OBSERVACIÓN', 'LAZO / SALIDA', 'I ESPERA MANUAL (mA)', 'I ALARMA MANUAL (mA)', 'AVISO'], 44)
     BD = 'BD_DISPOSITIVOS!${c}$6:${c}$%d' % NMAX_DISP
     for r in range(R_D1, R_D2 + 1):
         i = r - R_D1
@@ -342,21 +365,40 @@ def hoja_equipo(wb, nombre, eq):
         calc(ws, 'E%d' % r, '=IF($C{r}="","",IFERROR({x},""))'.format(r=r, x=look('F')))
         inp(ws, 'F%d' % r, f['zona'] if f else None)
         inp(ws, 'G%d' % r, f['cant'] if f else None, '0')
-        calc(ws, 'H%d' % r, '=IF($C{r}="","",IF($M{r}<>"",$M{r},IFERROR(IF({x}="","",{x}),"")))'.format(r=r, x=look('H')), '0.0##')
+        calc(ws, 'H%d' % r, '=IF($C{r}="","",IF($N{r}<>"",$N{r},IFERROR(IF({x}="","",{x}),"")))'.format(r=r, x=look('H')), '0.0##')
         calc(ws, 'I%d' % r, '=IF(OR($G{r}="",$H{r}=""),"",$G{r}*$H{r}/1000)'.format(r=r), '0.0000')
-        calc(ws, 'J%d' % r, '=IF($C{r}="","",IF($N{r}<>"",$N{r},IFERROR(IF({x}="","",{x}),"")))'.format(r=r, x=look('I')), '0.0##')
+        calc(ws, 'J%d' % r, '=IF($C{r}="","",IF($O{r}<>"",$O{r},IFERROR(IF({x}="","",{x}),"")))'.format(r=r, x=look('I')), '0.0##')
         calc(ws, 'K%d' % r, '=IF(OR($G{r}="",$J{r}=""),"",$G{r}*$J{r}/1000)'.format(r=r), '0.0000')
         inp(ws, 'L%d' % r, f['obs'] if f else None)
-        inp(ws, 'M%d' % r, None, '0.0##', FILL_OV)
+        inp(ws, 'M%d' % r, f.get('circ') if f else None)
         inp(ws, 'N%d' % r, None, '0.0##', FILL_OV)
-        calc(ws, 'O%d' % r, ('=IF(AND($C{r}="",$G{r}=""),"",IF($C{r}="","Elija el modelo",IF(ISNA(MATCH($C{r},{key},0)),"Modelo no está en el catálogo",'
+        inp(ws, 'O%d' % r, None, '0.0##', FILL_OV)
+        # auxiliares (columnas ocultas): tipo de dispositivo y tipo del lazo asignado, para avisar si no corresponden
+        calc(ws, 'S%d' % r, '=IF($C{r}="","",IFERROR(INDEX(BD_DISPOSITIVOS!$J$6:$J${n},MATCH($C{r},BD_DISPOSITIVOS!$B$6:$B${n},0)),""))'.format(r=r, n=NMAX_DISP))
+        calc(ws, 'T%d' % r, '=IF($M{r}="","",IFERROR(INDEX(CAIDA_TENSION!$D$16:$D$45,MATCH($M{r},CAIDA_TENSION!$U$16:$U$45,0)),""))'.format(r=r))
+        compat = ('IF($S{r}="SLC",$T{r}="SLC",IF($S{r}="NAC",$T{r}="NAC",IF($S{r}="IDNAC",$T{r}="IDNAC",IF($S{r}="FUENTE AUX",OR($T{r}="24VDC",$T{r}="NAC"),'
+                  'IF($S{r}="VOCEO",OR($T{r}="VOCEO",$T{r}="NAC"),IF(OR($S{r}="IDC",$S{r}="ZONA"),$T{r}="IDC",TRUE))))))').format(r=r)
+        calc(ws, 'P%d' % r, ('=IF(AND($C{r}="",$G{r}=""),"",IF($C{r}="","Elija el modelo",IF(ISNA(MATCH($C{r},{key},0)),"Modelo no está en el catálogo",'
                              'IF(OR($H{r}="",$J{r}=""),"Corriente sin definir en el catálogo: digítela en las columnas MANUAL",'
-                             'IF(OR($G{r}="",$G{r}<=0),"Digite la cantidad","")))))').format(r=r, key=BD.format(c='B')))
-        ws['O%d' % r].font = Font(name=ARIAL, size=9, color='C62828')
+                             'IF(OR($G{r}="",$G{r}<=0),"Digite la cantidad",'
+                             'IF(AND($M{r}<>"",$T{r}=""),"El lazo asignado ya no existe",'
+                             'IF(AND($M{r}<>"",NOT({compat})),"Es de tipo "&$S{r}&" y el lazo es "&$T{r},"")))))))').format(r=r, key=BD.format(c='B'), compat=compat))
+        ws['P%d' % r].font = Font(name=ARIAL, size=9, color='C62828')
     dv_lista(ws, LISTA_FAB, 'B%d:B%d' % (R_D1, R_D2))
     for r in range(R_D1, R_D2 + 1):
         dv_lista(ws, lista_modelos(r), 'C%d' % r)
     dv_lista(ws, LISTA_NIVELES, 'F%d:F%d' % (R_D1, R_D2), estricta=False)
+    dv_lista(ws, LISTA_LAZOS, 'M%d:M%d' % (R_D1, R_D2))
+    ws.column_dimensions['S'].hidden = True
+    ws.column_dimensions['T'].hidden = True
+    if eq.get('pistas'):
+        pista(ws, 'G%d:G%d' % (R_D1, R_D2), 'Cantidad', 'Ej.: 30 (número de dispositivos de ese modelo en este nivel y lazo)')
+        pista(ws, 'L%d:L%d' % (R_D1, R_D2), 'Observación', 'Ej.: Torre A, ala norte')
+        pista(ws, 'N%d:O%d' % (R_D1, R_D2), 'Reemplazo manual', 'Solo si desea reemplazar la corriente de catálogo (mA). Si lo deja vacío se usa la del catálogo.')
+        pista(ws, 'D7:D9', 'Reemplazo', 'Vacío = se usa el valor del proyecto.')
+        pista(ws, 'H3', 'TAG del equipo', 'Ej.: FACP-01 o TRP-N2')
+        pista_texto(ws, 'B12', 'Ejemplo de fila (no se calcula): SIMPLEX | 4098-9714 · Detector de humo — DETECTOR HUMO FOTOELÉCTRICO TrueAlarm (IDNet) | NIVEL 1 | cant. 30 | lazo FACP-01 · SLC 1.   '
+                              'La primera fila suele ser el consumo propio del panel o transponder.')
 
     put(ws, 'G%d' % R_TOT, 'TOTALES:', F_B, al=DER)
     calc(ws, 'I%d' % R_TOT, '=SUM(I%d:I%d)' % (R_D1, R_D2), '0.0000', True)
@@ -388,9 +430,9 @@ def hoja_equipo(wb, nombre, eq):
     put(ws, 'B54', 'ESTADO:', F_B)
     if es_f:
         estado = ('=IF(E52="EXCEDE","REVISAR: excede el catálogo de baterías",IF(LEFT($E$60,5)="ERROR","REVISAR: excede 80%% de la fuente",'
-                  'IF(SUMPRODUCT(--(LEN($O$%d:$O$%d)>0))>0,"REVISAR: hay filas con aviso","OK")))' % (R_D1, R_D2))
+                  'IF(SUMPRODUCT(--(LEN($P$%d:$P$%d)>0),--(LEFT($P$%d:$P$%d,10)<>"Es de tipo"),--(LEFT($P$%d:$P$%d,12)<>"El lazo asig"))>0,"REVISAR: hay filas con aviso","OK")))' % ((R_D1, R_D2) * 3))
     else:
-        estado = ('=IF(E52="EXCEDE","REVISAR: excede el catálogo de baterías",IF(SUMPRODUCT(--(LEN($O$%d:$O$%d)>0))>0,"REVISAR: hay filas con aviso","OK"))' % (R_D1, R_D2))
+        estado = ('=IF(E52="EXCEDE","REVISAR: excede el catálogo de baterías",IF(SUMPRODUCT(--(LEN($P$%d:$P$%d)>0),--(LEFT($P$%d:$P$%d,10)<>"Es de tipo"),--(LEFT($P$%d:$P$%d,12)<>"El lazo asig"))>0,"REVISAR: hay filas con aviso","OK"))' % ((R_D1, R_D2) * 3))
     put(ws, 'E54', estado, F_B, FILL_CALC, border=True)
     put(ws, 'B55', 'Configuración: 2 baterías 12 V en serie = 24 VDC. Verificar dimensiones vs. gabinete y capacidad máxima del cargador según ficha. Si «EXCEDE»: dividir la carga o usar cargador externo listado.', F_S)
     cf_estado(ws, 'E54', 'E54')
@@ -411,66 +453,79 @@ def hoja_equipo(wb, nombre, eq):
                                             ('BATERÍA (Ah)', '=E52', '0.0'), ('REFERENCIA', '=E53', None), ('ESTADO', '=E54', None)]):
         put(ws, 'P%d' % r, k, F_B, FILL_CALC, border=True)
         calc(ws, 'Q%d' % r, f, fmt)
-    anchos(ws, {'A': 3, 'B': 24, 'C': 66, 'D': 14, 'E': 24, 'F': 20, 'G': 8, 'H': 13, 'I': 13, 'J': 16, 'K': 13, 'L': 28, 'M': 12, 'N': 12, 'O': 28, 'P': 22, 'Q': 30})
+    anchos(ws, {'A': 3, 'B': 24, 'C': 66, 'D': 14, 'E': 24, 'F': 20, 'G': 8, 'H': 13, 'I': 13, 'J': 16, 'K': 13, 'L': 28, 'M': 26, 'N': 12, 'O': 12, 'P': 34, 'Q': 30})
     ws.freeze_panes = 'D14'
     return ws
 
 
 # ------------------------------------------------------------------ caída de tensión
-def hoja_caida(wb, cats, circuitos):
+def suma_equipos(col, r):
+    """Suma, sobre todas las hojas de equipo listadas en PROYECTO, de la columna `col` de las filas asignadas al lazo de la fila r."""
+    t = []
+    for k in range(TAB[0], TAB[1] + 1):
+        t.append('IFERROR(IF(PROYECTO!$B${k}="",0,SUMIF(INDIRECT("\'"&PROYECTO!$B${k}&"\'!$M${a}:$M${b}"),$U{r},INDIRECT("\'"&PROYECTO!$B${k}&"\'!${c}${a}:${c}${b}"))),0)'
+                 .format(k=k, a=R_D1, b=R_D2, c=col, r=r))
+    return '+'.join(t)
+
+
+def hoja_caida(wb, circuitos, pistas=False):
     ws = wb.create_sheet('CAIDA_TENSION')
     ws.sheet_properties.tabColor = 'B26A00'
-    put(ws, 'B2', 'CAÍDA DE TENSIÓN EN LAZOS (NAC / SLC / 24 VDC) — MÉTODO DE CARGA CONCENTRADA', F_T)
+    put(ws, 'B2', 'CAÍDA DE TENSIÓN EN LAZOS (SLC / NAC / IDNAC / 24 VDC) — MÉTODO DE CARGA CONCENTRADA', F_T)
     seccion(ws, 4, 'PARÁMETROS GLOBALES (se editan en la hoja PROYECTO)', 2, 6)
     for r, (k, f, fmt) in zip(range(5, 9), [('TENSIÓN NOMINAL (V)', '=PROYECTO!$H$8', '0.0'), ('TENSIÓN DE FUENTE A FIN DE VIDA DE BATERÍA (V)', '=PROYECTO!$H$12', '0.00'),
                                             ('TENSIÓN MÍNIMA DE DISPOSITIVO (V)', '=PROYECTO!$H$10', '0.0'), ('I MÁX. POR CIRCUITO NAC (A) — 80% de ficha', '=PROYECTO!$H$11', '0.00')]):
         put(ws, 'B%d' % r, k, F_B)
         calc(ws, 'E%d' % r, f, fmt, True)
-    seccion(ws, 10, 'CORRIENTES UNITARIAS POR CATEGORÍA — elija el modelo de ficha para cada columna; el mA de alarma se carga solo', 2, 9)
-    put(ws, 'B11', 'CATEGORÍA', F_B)
-    for i, c in enumerate(CATEGORIAS):
-        put(ws, '%s11' % L(5 + i), c, F_H, FILL_H, al=CENTRO, border=True)
-        inp(ws, '%s12' % L(5 + i), ETQ[cats[i]] if cats[i] else None).alignment = Alignment(wrap_text=True, vertical='top')
-        calc(ws, '%s13' % L(5 + i), '=IFERROR(INDEX(BD_DISPOSITIVOS!$I$6:$I$%d,MATCH(%s12,BD_DISPOSITIVOS!$B$6:$B$%d,0)),0)' % (NMAX_DISP, L(5 + i), NMAX_DISP), '0.0', True)
-    ws.row_dimensions[12].height = 62
-    put(ws, 'B12', 'MODELO (de catálogo):', F_B)
-    put(ws, 'B13', 'I ALARMA UNITARIA (mA):', F_B)
-    dv_lista(ws, LISTA_DISP_TODOS, 'E12:I12')
-    header(ws, 15, 2, ['FUENTE / PANEL', 'CIRCUITO / LAZO', 'NIVEL / DESCRIPCIÓN'] + ['CANT. ' + c.split(' (')[0] for c in CATEGORIAS] +
-           ['OTROS (mA)', 'I CIRCUITO (mA)', 'CABLE (de catálogo)', 'R (Ω/km /cond.)', 'LONG. IDA (m)', 'R LAZO TOTAL (Ω)', 'V FUENTE (V)', 'CAÍDA DE TENSIÓN (V)', 'V EN DISPOSITIVO (V)', '% CAÍDA', 'ESTADO', 'COMENTARIO'], 44)
+    seccion(ws, 10, 'CÓMO SE CALCULA', 2, 12)
+    put(ws, 'B11', 'Defina aquí cada lazo (SLC, NAC, IDNAC, 24 VDC, voceo, IDC) con su panel, tipo, nivel, cable y longitud. En la hoja de cada equipo, columna LAZO / SALIDA, asigne cada dispositivo a su lazo.', F_BASE)
+    put(ws, 'B12', 'I lazo = Σ (cantidad × corriente de alarma de los dispositivos asignados) + OTROS (mA, solo cargas que no estén en la lista).   R lazo = 2 × L × R (Ω/m).   V disp. = V fuente − I × R lazo.', F_BASE)
+    put(ws, 'B13', 'Aceptación: V disp. ≥ V mínima del dispositivo e I ≤ I máx. NAC.   El cable por defecto según la simbología CDCLH-001S: 5220UL (voceo: 5220FL).', F_S)
+    header(ws, 15, 2, ['FUENTE / PANEL', 'LAZO / SALIDA', 'TIPO', 'NIVEL', 'DESCRIPCIÓN', 'DISP. (cant.)', 'OTROS (mA)', 'I DISPOSITIVOS (mA)', 'I LAZO (mA)', 'CABLE (de catálogo)', 'R (Ω/km /cond.)',
+                       'LONG. IDA (m)', 'R LAZO TOTAL (Ω)', 'V FUENTE (V)', 'CAÍDA DE TENSIÓN (V)', 'V EN DISPOSITIVO (V)', '% CAÍDA', 'ESTADO', 'COMENTARIO', 'CLAVE (la usan las hojas de equipo)'], 44)
     a, b = FILAS_CAIDA
     for r in range(a, b + 1):
         c = circuitos[r - a] if r - a < len(circuitos) else None
         inp(ws, 'B%d' % r, c['fuente'] if c else None)
         inp(ws, 'C%d' % r, c['circuito'] if c else None)
-        inp(ws, 'D%d' % r, c['desc'] if c else None)
-        for k in range(5):
-            inp(ws, '%s%d' % (L(5 + k), r), (c['q'][k] if c else None), '0')
-        inp(ws, 'J%d' % r, c['otros'] if c else None, '0.0')
-        calc(ws, 'K%d' % r, '=IF(COUNT($E{r}:$J{r})=0,"",SUMPRODUCT($E$13:$I$13,$E{r}:$I{r})+IF($J{r}="",0,$J{r}))'.format(r=r), '#,##0.0')
-        inp(ws, 'L%d' % r, cable_etq(c['cable']) if c else None)
-        calc(ws, 'M%d' % r, '=IFERROR(INDEX(BD_CABLES!$I$6:$I$%d,MATCH($L%d,BD_CABLES!$B$6:$B$%d,0)),"")' % (NMAX_CAB, r, NMAX_CAB), '0.00')
-        inp(ws, 'N%d' % r, c['long'] if c else None, '0')
-        calc(ws, 'O%d' % r, '=IF(OR($N{r}="",$M{r}=""),"",2*$N{r}/1000*$M{r})'.format(r=r), '0.000')
-        calc(ws, 'P%d' % r, '=IF($K{r}="","",$E$6)'.format(r=r), '0.00')
-        calc(ws, 'Q%d' % r, '=IF(OR($K{r}="",$O{r}=""),"",$K{r}/1000*$O{r})'.format(r=r), '0.00')
-        calc(ws, 'R%d' % r, '=IF($Q{r}="","",$P{r}-$Q{r})'.format(r=r), '0.00', True)
-        calc(ws, 'S%d' % r, '=IF($Q{r}="","",$Q{r}/$P{r})'.format(r=r), '0.0%')
-        calc(ws, 'T%d' % r, '=IF($R{r}="","",IF(AND($R{r}>=$E$7,$K{r}<=$E$8*1000),"OK",IF($K{r}>$E$8*1000,"ERROR: I > I MÁX NAC","ERROR: V < V MÍN")))'.format(r=r), None, True)
-        calc(ws, 'U%d' % r, ('=IF($R{r}="","",IF(AND(COUNT($I{r})>0,$I{r}>0,SUM($E{r}:$H{r})>0),"NO COMBINAR BASES AUDIBLES CON NAC",'
-                             'IF($T{r}<>"OK","AUMENTE CALIBRE, REDUZCA DISTANCIA O DIVIDA EL CIRCUITO","")))').format(r=r))
+        inp(ws, 'D%d' % r, c['tipo'] if c else None)
+        inp(ws, 'E%d' % r, c['nivel'] if c else None)
+        inp(ws, 'F%d' % r, c['desc'] if c else None)
+        calc(ws, 'G%d' % r, '=IF($U{r}="","",{s})'.format(r=r, s=suma_equipos('G', r)), '0')
+        inp(ws, 'H%d' % r, c['otros'] if c else None, '0.0')
+        calc(ws, 'I%d' % r, '=IF($U{r}="","",1000*({s}))'.format(r=r, s=suma_equipos('K', r)), '#,##0.0')
+        calc(ws, 'J%d' % r, '=IF($U{r}="","",IF(AND($G{r}=0,$H{r}=""),"",$I{r}+N($H{r})))'.format(r=r), '#,##0.0', True)
+        inp(ws, 'K%d' % r, cable_etq(c['cable']) if c else None)
+        calc(ws, 'L%d' % r, '=IFERROR(INDEX(BD_CABLES!$I$6:$I$%d,MATCH($K%d,BD_CABLES!$B$6:$B$%d,0)),"")' % (NMAX_CAB, r, NMAX_CAB), '0.00')
+        inp(ws, 'M%d' % r, c['long'] if c else None, '0')
+        calc(ws, 'N%d' % r, '=IF(OR($M{r}="",$L{r}=""),"",2*$M{r}/1000*$L{r})'.format(r=r), '0.000')
+        calc(ws, 'O%d' % r, '=IF($J{r}="","",$E$6)'.format(r=r), '0.00')
+        calc(ws, 'P%d' % r, '=IF(OR($J{r}="",$N{r}=""),"",$J{r}/1000*$N{r})'.format(r=r), '0.00')
+        calc(ws, 'Q%d' % r, '=IF($P{r}="","",$O{r}-$P{r})'.format(r=r), '0.00', True)
+        calc(ws, 'R%d' % r, '=IF($P{r}="","",$P{r}/$O{r})'.format(r=r), '0.0%')
+        calc(ws, 'S%d' % r, ('=IF($J{r}="","",IF($Q{r}="","INCOMPLETO",IF(AND($Q{r}>=$E$7,$J{r}<=$E$8*1000),"OK",'
+                             'IF($J{r}>$E$8*1000,"ERROR: I > I MÁX NAC","ERROR: V < V MÍN"))))').format(r=r), None, True)
+        calc(ws, 'T%d' % r, ('=IF($J{r}="","",IF($S{r}="INCOMPLETO",IF($K{r}="","Seleccione el cable","Digite la longitud"),'
+                             'IF($S{r}<>"OK","AUMENTE CALIBRE, REDUZCA DISTANCIA O DIVIDA EL LAZO","")))').format(r=r))
+        calc(ws, 'U%d' % r, '=IF(OR($B{r}="",$C{r}=""),"",$B{r}&" · "&$C{r})'.format(r=r))
     dv_lista(ws, LISTA_EQUIPOS, 'B%d:B%d' % (a, b), estricta=False)
-    dv_lista(ws, LISTA_CABLES, 'L%d:L%d' % (a, b))
-    cf_estado(ws, 'T%d:T%d' % (a, b), 'T%d' % a)
-    put(ws, 'J%d' % (b + 1), 'TOTAL (A):', F_B, al=DER)
-    calc(ws, 'K%d' % (b + 1), '=SUM(K%d:K%d)/1000' % (a, b), '0.000', True)
-    put(ws, 'L%d' % (b + 1), 'Verificar contra la capacidad total del panel/fuente', F_S)
-    put(ws, 'B%d' % (b + 2), 'CIRCUITOS CON ERROR:', F_B)
-    calc(ws, 'E%d' % (b + 2), '=SUMPRODUCT(--(LEFT($T$%d:$T$%d,5)="ERROR"))' % (a, b), '0', True)
-    put(ws, 'B%d' % (b + 4), 'MÉTODO: carga concentrada al final del lazo (conservador). I_circuito = Σ(cantidad × mA unitario de ficha) + OTROS. Para lazos SLC o 24 VDC digite la corriente total del lazo en OTROS (mA). '
-                              'V_disp = V_fuente − (I/1000)·R_lazo, con R_lazo = 2 × L × R(Ω/m). No combinar bases audibles con NAC.', F_S)
-    anchos(ws, {'A': 3, 'B': 28, 'C': 16, 'D': 30, 'E': 19, 'F': 19, 'G': 19, 'H': 19, 'I': 19, 'J': 11, 'K': 13, 'L': 44, 'M': 11, 'N': 11, 'O': 11, 'P': 10, 'Q': 12, 'R': 12, 'S': 9, 'T': 24, 'U': 48})
-    ws.freeze_panes = 'E16'
+    dv_lista(ws, '"%s"' % TIPOS_LAZO_XL, 'D%d:D%d' % (a, b))
+    dv_lista(ws, LISTA_NIVELES, 'E%d:E%d' % (a, b), estricta=False)
+    dv_lista(ws, LISTA_CABLES, 'K%d:K%d' % (a, b))
+    cf_estado(ws, 'S%d:S%d' % (a, b), 'S%d' % a)
+    if pistas:
+        pista(ws, 'C%d:C%d' % (a, b), 'Nombre del lazo', 'Ej.: SLC 1, NAC 2, 24 VDC 1')
+        pista(ws, 'F%d:F%d' % (a, b), 'Descripción', 'Ej.: Detección torre A, pasillos nivel 2')
+        pista(ws, 'H%d:H%d' % (a, b), 'Otros (mA)', 'Solo cargas que no estén en la lista de dispositivos del equipo (mA). Normalmente vacío.')
+        pista(ws, 'M%d:M%d' % (a, b), 'Longitud de ida (m)', 'Ej.: 150 (distancia del panel al último dispositivo)')
+        pista_texto(ws, 'B14', 'Ejemplo de fila (no se calcula): FACP-01 | SLC 1 | SLC | NIVEL 1 | Detección torre A | cable BELDEN 5220UL | longitud 220 m')
+    put(ws, 'I%d' % (b + 1), 'TOTAL (A):', F_B, al=DER)
+    calc(ws, 'J%d' % (b + 1), '=SUM(J%d:J%d)/1000' % (a, b), '0.000', True)
+    put(ws, 'K%d' % (b + 1), 'Verificar contra la capacidad total del panel/fuente', F_S)
+    put(ws, 'B%d' % (b + 2), 'LAZOS CON ERROR:', F_B)
+    calc(ws, 'E%d' % (b + 2), '=SUMPRODUCT(--(LEFT($S$%d:$S$%d,5)="ERROR"))' % (a, b), '0', True)
+    anchos(ws, {'A': 3, 'B': 24, 'C': 16, 'D': 10, 'E': 16, 'F': 28, 'G': 11, 'H': 11, 'I': 14, 'J': 13, 'K': 44, 'L': 11, 'M': 11, 'N': 11, 'O': 10, 'P': 12, 'Q': 12, 'R': 9, 'S': 24, 'T': 46, 'U': 22})
+    ws.freeze_panes = 'D16'
     return ws
 
 
@@ -534,7 +589,7 @@ def hoja_memoria(wb):
     t = TAB[1] + 1
     kp = [('Ah requerido total del sistema (paneles):', '=PROYECTO!$H$%d' % t, '0.00'), ('Cantidad de paneles / transponders:', '=PROYECTO!$F$%d' % (t + 1), '0'),
           ('Cantidad de fuentes auxiliares:', '=PROYECTO!$F$%d' % (t + 2), '0'), ('Equipos por revisar:', '=PROYECTO!$F$%d' % (t + 3), '0'),
-          ('Circuitos con error de caída de tensión:', '=CAIDA_TENSION!$E$%d' % (FILAS_CAIDA[1] + 2), '0')]
+          ('Lazos con error de caída de tensión:', '=CAIDA_TENSION!$E$%d' % (FILAS_CAIDA[1] + 2), '0')]
     for k, f, fmt in kp:
         r += 1
         ws.merge_cells('B%d:E%d' % (r, r))
@@ -557,21 +612,21 @@ def hoja_memoria(wb):
         ws.merge_cells('I%d:J%d' % (r, r))
     cf_estado(ws, 'K%d:K%d' % (primero, r), 'K%d' % primero)
     r += 2
-    put(ws, 'B%d' % r, '4.2 Caída de tensión por circuito', F_B)
+    put(ws, 'B%d' % r, '4.2 Caída de tensión por lazo', F_B)
     r += 1
-    header(ws, r, 2, ['FUENTE', 'CIRCUITO', 'DESCRIPCIÓN', 'I (mA)', 'L (m)', 'R LAZO (Ω)', 'CAÍDA (V)', 'V DISP. (V)', 'ESTADO', 'COMENTARIO', ''], 30)
-    ws.cell(row=r, column=12).value = None
-    ws.cell(row=r, column=12).fill = PatternFill()
-    ws.cell(row=r, column=12).border = Border()
+    header(ws, r, 2, ['FUENTE', 'LAZO', 'NIVEL / DESCRIPCIÓN', 'DISP.', 'I (mA)', 'L (m)', 'R LAZO (Ω)', 'CAÍDA (V)', 'V DISP. (V)', 'ESTADO', 'COMENTARIO'], 30)
     a, b = FILAS_CAIDA
     primero = r + 1
     for k in range(a, b + 1):
         r += 1
-        m = [('B', 'B', None), ('C', 'C', None), ('D', 'D', None), ('E', 'K', '#,##0'), ('F', 'N', '0'), ('G', 'O', '0.00'), ('H', 'Q', '0.00'), ('I', 'R', '0.00'), ('J', 'T', None), ('K', 'U', None)]
+        m = [('B', 'CAIDA_TENSION!$B{k}', None), ('C', 'CAIDA_TENSION!$C{k}', None),
+             ('D', 'CAIDA_TENSION!$E{k}&IF(AND(CAIDA_TENSION!$E{k}<>"",CAIDA_TENSION!$F{k}<>"")," — ","")&CAIDA_TENSION!$F{k}', None),
+             ('E', 'CAIDA_TENSION!$G{k}', '0'), ('F', 'CAIDA_TENSION!$J{k}', '#,##0'), ('G', 'CAIDA_TENSION!$M{k}', '0'), ('H', 'CAIDA_TENSION!$N{k}', '0.00'),
+             ('I', 'CAIDA_TENSION!$P{k}', '0.00'), ('J', 'CAIDA_TENSION!$Q{k}', '0.00'), ('K', 'CAIDA_TENSION!$S{k}', None), ('L', 'CAIDA_TENSION!$T{k}', None)]
         for dest, orig, fmt in m:
-            f = '=IF(CAIDA_TENSION!$K{k}="","",CAIDA_TENSION!${o}{k})'.format(k=k, o=orig)
+            f = '=IF(CAIDA_TENSION!$U{k}="","",{o})'.format(k=k, o=orig.format(k=k))
             put(ws, '%s%d' % (dest, r), f, F_BASE, None, fmt, border=True)
-    cf_estado(ws, 'J%d:J%d' % (primero, r), 'J%d' % primero)
+    cf_estado(ws, 'K%d:K%d' % (primero, r), 'K%d' % primero)
     r += 2
     texto(r, 'NOTA: Memoria de cálculo de ingeniería. Los valores de corriente de dispositivos y resistencia de cables provienen de fichas técnicas y deben verificarse contra la revisión vigente '
              'antes de construcción. Aprobación final: AHJ (Ingeniería de Bomberos de Costa Rica).', F_S, 30)
@@ -616,13 +671,13 @@ def hoja_instrucciones(wb):
     put(ws, 'B2', 'INSTRUCCIONES DE USO', F_T)
     pasos = [
         ('LEYENDA', None),
-        ('Verde', 'Entrada manual (escriba o elija de la lista).'), ('Amarillo', 'Reemplazo manual de una corriente unitaria de catálogo (columnas «MANUAL» de las hojas de equipo).'),
+        ('Verde', 'Entrada manual (escriba o elija de la lista). En la plantilla están limpias; al seleccionar una casilla aparece un ejemplo tenue.'), ('Amarillo', 'Reemplazo manual de una corriente unitaria de catálogo (columnas «MANUAL» de las hojas de equipo).'),
         ('Gris', 'Cálculo automático: no escribir encima.'), ('', ''),
         ('FLUJO DE TRABAJO', None),
         ('1', 'En PROYECTO: complete los datos, revise los parámetros NFPA 72 y escriba los NIVELES del edificio (se empieza con uno; los demás se agregan como se indica abajo).'),
-        ('2', 'En cada hoja de equipo (BAT_FACP_…, BAT_TRP_…, FUENTE_…): elija FABRICANTE → MODELO (la lista muestra «código · qué es — descripción») y digite NIVEL/ZONA y CANTIDAD. La primera fila es el consumo propio del panel/transponder.'),
+        ('2', 'En cada hoja de equipo (BAT_FACP_…, BAT_TRP_…, FUENTE_…): elija FABRICANTE → MODELO (la lista muestra «código · qué es — descripción») y digite NIVEL/ZONA, LAZO / SALIDA (la lista sale de la hoja CAIDA_TENSION) y CANTIDAD. La primera fila es el consumo propio del panel/transponder.'),
         ('3', 'Cada equipo calcula su propia batería y selecciona la capacidad estándar inmediata superior del catálogo (2 × 12 V en serie = 24 VDC). Si excede la mayor batería, el estado dice REVISAR.'),
-        ('4', 'En CAIDA_TENSION: elija el modelo de cada categoría y registre los circuitos (cantidades por categoría u «OTROS» en mA, cable y longitud de ida).'),
+        ('4', 'En CAIDA_TENSION defina primero los lazos (panel, nombre, tipo SLC/NAC/IDNAC/24 VDC/voceo/IDC, nivel, cable y longitud de ida); la corriente de cada lazo sale de los dispositivos asignados en las hojas de equipo (más «OTROS» en mA).'),
         ('5', 'MEMORIA_CALCULO reúne todos los resultados y está lista para imprimir o guardar como PDF (Archivo → Imprimir). RESUMEN_DISPOSITIVOS cuenta los modelos por equipo.'),
         ('', ''),
         ('AGREGAR UN NIVEL (equivale al botón «+ Nivel» de la web)', None),
@@ -641,7 +696,7 @@ def hoja_instrucciones(wb):
         ('IMPORTANTE', None),
         ('•', 'Todas las corrientes y resistencias provienen de fichas de fabricante: verificar contra la revisión vigente del modelo/candela/tap de planos. Aprobación final: AHJ.'),
         ('•', 'El catálogo fue validado contra la simbología CDCLH-001S (Circuito S.A., versiones Simplex y Notifier). Los dispositivos agregados sin corriente conocida aparecen con AVISO «Corriente sin definir»: digite la corriente en las columnas MANUAL (amarillas) o complete el catálogo; mientras tanto el equipo queda en REVISAR.'),
-        ('•', 'Este libro es una copia local de la herramienta web; ambos usan el mismo catálogo base y las mismas fórmulas, pero no se sincronizan entre sí.'),
+        ('•', 'Este libro es una copia local de la herramienta web; ambos usan el mismo catálogo base, los mismos lazos por dispositivo y las mismas fórmulas, pero los datos no se sincronizan entre sí.'),
     ]
     r = 3
     for k, v in pasos:
@@ -671,7 +726,6 @@ def construir(ruta, ejemplo):
     def fila(fab, tag, modelo, zona, cant, obs=''):
         return {'fab': fab, 'disp': disp(fab, tag, modelo)['id'], 'zona': zona, 'cant': cant, 'obs': obs}
 
-    cats = [disp(sx, 'AV-P 15cd')['id'], disp(sx, 'AV-P 30cd')['id'], disp(sx, 'AV-P 75cd')['id'], disp(sx, 'AV-P 110cd')['id'], disp(sx, 'SB')['id']]
     if ejemplo:
         datos = {'nombre': 'Proyecto de ejemplo (Excel original)', 'numero': '', 'niveles': ['SÓTANO 2', 'NIVEL 1', 'NIVEL 3', 'NIVEL 6', 'NIVEL 9']}
         equipos = [
@@ -683,18 +737,19 @@ def construir(ruta, ejemplo):
             ('FUENTE_RPS_01', {'clase': 'fuente', 'tag': 'RPS-01', 'nivel': 'NIVEL 1', 'iMax': 8, 'iPropia': 0.145,
                                'filas': [fila(sx, 'ST-P 110cd', None, 'HABITACIONES N2', 20, '(fila de ejemplo — reemplazar)')]}),
         ]
-        circ = [{'fuente': 'FACP-01', 'circuito': 'NAC 1', 'desc': 'Parqueo — ejemplo', 'q': [5, 8, None, None, None], 'otros': None, 'cable': '5220UL', 'long': 150},
-                {'fuente': 'FACP-01', 'circuito': 'SLC 1', 'desc': 'Lazo detección N1-N3 — ejemplo', 'q': [None] * 5, 'otros': 1500, 'cable': '5220UL', 'long': 350}]
+        # mismas corrientes del Excel original: 5 × 74 mA + 8 × 84 mA = 1042 mA y 1500 mA (se capturan en «otros»)
+        circ = [{'fuente': 'FACP-01', 'circuito': 'NAC 1', 'tipo': 'NAC', 'nivel': 'NIVEL 1', 'desc': 'Parqueo — ejemplo', 'otros': 1042, 'cable': '5220UL', 'long': 150},
+                {'fuente': 'FACP-01', 'circuito': 'SLC 1', 'tipo': 'SLC', 'nivel': 'NIVEL 1', 'desc': 'Lazo detección N1-N3 — ejemplo', 'otros': 1500, 'cable': '5220UL', 'long': 350}]
     else:
-        datos = {'nombre': 'Proyecto nuevo', 'numero': '', 'niveles': ['NIVEL 1']}
-        f0 = fila(sx, 'FACP', '4100ES', 'NIVEL 1', 1, '(consumo propio del equipo)')
-        equipos = [('BAT_FACP_01', {'clase': 'panel', 'tag': 'FACP-01', 'tipo': 'FACP', 'nivel': 'NIVEL 1', 'filas': [f0]})]
+        # plantilla limpia: sin datos; los ejemplos aparecen como mensajes tenues al seleccionar cada casilla
+        datos = {'nombre': '', 'numero': '', 'niveles': ['NIVEL 1'], 'pistas': True}
+        equipos = [('BAT_FACP_01', {'clase': 'panel', 'tag': 'FACP-01', 'tipo': 'FACP', 'nivel': 'NIVEL 1', 'filas': [], 'pistas': True})]
         circ = []
 
     hoja_proyecto(wb, datos, [n for n, _ in equipos])
     for nombre, eq in equipos:
         hoja_equipo(wb, nombre, eq)
-    hoja_caida(wb, cats, circ)
+    hoja_caida(wb, circ, pistas=not ejemplo)
     hoja_memoria(wb)
     hoja_resumen_disp(wb, [n for n, _ in equipos])
     hoja_instrucciones(wb)

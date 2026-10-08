@@ -532,15 +532,15 @@
 
     h.push('<div class="grid-2col"><div>');
     // Información
-    h.push('<section class="card"><div class="card-h"><h3>Información del proyecto</h3><span class="nota">Entrada manual: campos blancos · cálculo automático: fondo gris</span></div><div class="card-b"><div class="grid c4">' +
-      campo('Nombre del proyecto', B('nombre', null, 'sel'), P.nombre, { span: 2 }) +
-      campo('N.º de proyecto', B('numero', null, 'sel'), P.numero) +
-      campo('Revisión', B('revision'), P.revision) +
-      campo('Cliente', B('cliente'), P.cliente, { span: 2 }) +
-      campo('Ubicación', B('ubicacion'), P.ubicacion) +
+    h.push('<section class="card"><div class="card-h"><h3>Información del proyecto</h3><span class="nota">Entrada manual: campos verde claro · cálculo automático: fondo gris</span></div><div class="card-b"><div class="grid c4">' +
+      campo('Nombre del proyecto', B('nombre', null, 'sel'), P.nombre, { span: 2, attrs: { placeholder: 'Ej.: Torre Central — Fase 2' } }) +
+      campo('N.º de proyecto', B('numero', null, 'sel'), P.numero, { attrs: { placeholder: 'Ej.: P-2026-014' } }) +
+      campo('Revisión', B('revision'), P.revision, { attrs: { placeholder: 'Ej.: 0, A, B' } }) +
+      campo('Cliente', B('cliente'), P.cliente, { span: 2, attrs: { placeholder: 'Ej.: Desarrolladora XYZ S.A.' } }) +
+      campo('Ubicación', B('ubicacion'), P.ubicacion, { attrs: { placeholder: 'Ej.: Escazú, San José' } }) +
       campo('Fecha', B('fecha'), P.fecha, { type: 'date' }) +
-      campo('Elaboró', B('elaboro'), P.elaboro) +
-      campo('Revisó', B('reviso'), P.reviso) +
+      campo('Elaboró', B('elaboro'), P.elaboro, { attrs: { placeholder: 'Ej.: Nombre Apellido' } }) +
+      campo('Revisó', B('reviso'), P.reviso, { attrs: { placeholder: 'Ej.: Nombre Apellido' } }) +
       campo('Empresa', B('empresa'), P.empresa) +
       campo('Fabricante principal', B('fabricante'), P.fabricante, { opciones: optsFabricantes(P.fabricante), ayuda: 'Valor inicial de filas nuevas' }) +
       campo('Normativa', B('normativa'), P.normativa, { span: 4 }) +
@@ -583,7 +583,7 @@
         h.push('<tr><td><input class="in w-sm" ' + b('tag') + ' data-re="tabs" value="' + esc(p.tag) + '"></td>' +
           '<td><select class="in w-sm" ' + b('tipo') + ' data-re="tabs">' + opts(['FACP', 'TRP'], p.tipo) + '</select></td>' +
           '<td><select class="in w-md" ' + b('nivel') + ' data-re="tabs">' + optsNiveles(p.nivel) + '</select></td>' +
-          '<td><input class="in w-md" ' + b('descripcion') + ' value="' + esc(p.descripcion) + '"></td>' +
+          '<td><input class="in w-md" ' + b('descripcion') + ' value="' + esc(p.descripcion) + '" placeholder="Ej.: Panel principal"></td>' +
           '<td class="calc num" data-out="n:' + p.id + '"></td><td class="calc num" data-out="ie:' + p.id + '"></td><td class="calc num" data-out="ia:' + p.id + '"></td>' +
           '<td class="calc num" data-out="ah:' + p.id + '"></td><td class="calc num" data-out="bat:' + p.id + '"></td><td data-out="est:' + p.id + '"></td>' +
           '<td style="white-space:nowrap"><button class="btn btn-sm" data-act="ir" data-tab="p:' + esc(p.id) + '">Abrir →</button>' +
@@ -665,7 +665,7 @@
       (esF ? campo('Alimentada desde', B('panelId'), eq.panelId, { opciones: opts(P.paneles.map(function (p) { return { v: p.id, l: p.tag }; }), eq.panelId, '—') })
         : campo('Tipo', B('tipo', null, 'tabs'), eq.tipo, { opciones: opts([{ v: 'FACP', l: 'FACP — panel principal' }, { v: 'TRP', l: 'TRP — transponder' }], eq.tipo) })) +
       campo('Nivel / ubicación', B('nivel', null, 'tabs'), eq.nivel, { opciones: optsNiveles(eq.nivel) }) +
-      campo('Descripción', B('descripcion'), eq.descripcion) +
+      campo('Descripción', B('descripcion'), eq.descripcion, { attrs: { placeholder: 'Ej.: Panel principal, sala de control' } }) +
       campo('Tiempo de espera (h)', B('tEspera', 'num'), eq.tEspera, { attrs: { placeholder: pp.tEspera } }) +
       campo('Tiempo de alarma (min)', B('tAlarma', 'num'), eq.tAlarma, { attrs: { placeholder: pp.tAlarma, list: 'dl-talarma' }, ayuda: '5 min alarma · 15 min voceo/EVACS' }) +
       campo('Factor de seguridad (%)', B('fs', 'pct'), eq.fs, { attrs: { placeholder: +(pp.fs * 100).toFixed(2) } }) +
@@ -681,11 +681,11 @@
       '<th class="num">Disp.</th><th class="num">I alarma (mA)</th><th class="num">V disp. (V)</th><th>Estado</th><th></th></tr></thead><tbody>' +
       (lazos.length ? lazos.map(function (c) {
         var b = function (k, t) { return 'data-o="circ" data-id="' + esc(c.id) + '" data-k="' + k + '"' + (t ? ' data-t="' + t + '" type="number" step="any"' : ''); };
-        return '<tr><td><input class="in w-sm" ' + b('circuito') + ' data-re="vista" value="' + esc(c.circuito) + '"></td>' +
+        return '<tr><td><input class="in w-sm" ' + b('circuito') + ' data-re="vista" value="' + esc(c.circuito) + '" placeholder="Ej.: SLC 1"></td>' +
           '<td><select class="in w-sm" ' + b('tipo') + ' data-re="vista">' + optsTiposLazo(c.tipo) + '</select></td>' +
           '<td><select class="in w-md" ' + b('nivel') + ' data-re="vista">' + optsNiveles(c.nivel) + '</select></td>' +
           '<td><select class="in w-md" ' + b('cable') + '>' + optsCables(c.cable) + '</select></td>' +
-          '<td><input class="in w-xs" min="0" ' + b('long', 'num') + ' value="' + fmtN(c.long) + '"></td>' +
+          '<td><input class="in w-xs" min="0" ' + b('long', 'num') + ' value="' + fmtN(c.long) + '" placeholder="150"></td>' +
           '<td class="calc num" data-out="n:' + c.id + '"></td><td class="calc num" data-out="i:' + c.id + '"></td><td class="calc num" data-out="vd:' + c.id + '"></td>' +
           '<td data-out="es:' + c.id + '"></td>' +
           '<td><button class="btn-icon del" title="Eliminar lazo" data-act="circ-del" data-id="' + esc(c.id) + '">✕</button></td></tr>';
@@ -762,12 +762,12 @@
       '<td class="calc" data-out="tag:' + f.id + '"></td>' +
       '<td><select class="in w-md" ' + b('zona') + '>' + optsNiveles(f.zona) + '</select></td>' +
       '<td><select class="in w-md" ' + b('circ') + '>' + optsLazos(equipo(ref), f.circ) + '</select></td>' +
-      '<td><input class="in w-xs" type="number" min="0" step="1" ' + b('cant', 'num') + ' value="' + fmtN(f.cant) + '"></td>' +
+      '<td><input class="in w-xs" type="number" min="0" step="1" ' + b('cant', 'num') + ' value="' + fmtN(f.cant) + '" placeholder="10"></td>' +
       '<td><input class="in w-xs" type="number" step="any" ' + b('iEsp', 'num') + ' value="' + fmtN(f.iEsp) + '" placeholder="' + (d ? fmtN(d.iEspera) : '') + '"></td>' +
       '<td class="calc num" data-out="ie:' + f.id + '"></td>' +
       '<td><input class="in w-xs" type="number" step="any" ' + b('iAlm', 'num') + ' value="' + fmtN(f.iAlm) + '" placeholder="' + (d ? fmtN(d.iAlarma) : '') + '"></td>' +
       '<td class="calc num" data-out="ia:' + f.id + '"></td>' +
-      '<td><input class="in w-md" ' + b('obs') + ' value="' + esc(f.obs) + '"></td>' +
+      '<td><input class="in w-md" ' + b('obs') + ' value="' + esc(f.obs) + '" placeholder="Ej.: Torre A"></td>' +
       '<td data-out="av:' + f.id + '"></td>' +
       '<td style="white-space:nowrap"><button class="btn-icon" title="Duplicar fila" data-act="fila-dup" data-id="' + esc(f.id) + '">⧉</button>' +
       '<button class="btn-icon del" title="Eliminar fila" data-act="fila-del" data-id="' + esc(f.id) + '">✕</button></td></tr>';
@@ -826,16 +826,16 @@
       var b = function (k, t) { return 'data-o="circ" data-id="' + esc(c.id) + '" data-k="' + k + '"' + (t ? ' data-t="' + t + '" type="number" step="any"' : ''); };
       h.push('<tr><td class="idx">' + (i + 1) + '</td>' +
         '<td><select class="in w-sm" ' + b('fuente') + '>' + optsEquipos(c.fuente) + '</select></td>' +
-        '<td><input class="in w-sm" ' + b('circuito') + ' value="' + esc(c.circuito) + '" placeholder="SLC 1"></td>' +
+        '<td><input class="in w-sm" ' + b('circuito') + ' value="' + esc(c.circuito) + '" placeholder="Ej.: SLC 1"></td>' +
         '<td><select class="in w-sm" ' + b('tipo') + '>' + optsTiposLazo(c.tipo) + '</select></td>' +
         '<td><select class="in w-md" ' + b('nivel') + '>' + optsNiveles(c.nivel) + '</select></td>' +
-        '<td><input class="in w-md" ' + b('desc') + ' value="' + esc(c.desc) + '"></td>' +
+        '<td><input class="in w-md" ' + b('desc') + ' value="' + esc(c.desc) + '" placeholder="Ej.: Detección torre A"></td>' +
         '<td class="calc num" data-out="n:' + c.id + '"></td>' +
-        '<td><input class="in w-xs" min="0" ' + b('otros', 'num') + ' value="' + fmtN(c.otros) + '"></td>' +
+        '<td><input class="in w-xs" min="0" ' + b('otros', 'num') + ' value="' + fmtN(c.otros) + '" placeholder="mA"></td>' +
         '<td class="calc num" data-out="i:' + c.id + '"></td>' +
         '<td><select class="in w-md" ' + b('cable') + '>' + optsCables(c.cable) + '</select></td>' +
         '<td class="calc num" data-out="r:' + c.id + '"></td>' +
-        '<td><input class="in w-xs" min="0" ' + b('long', 'num') + ' value="' + fmtN(c.long) + '"></td>' +
+        '<td><input class="in w-xs" min="0" ' + b('long', 'num') + ' value="' + fmtN(c.long) + '" placeholder="150"></td>' +
         '<td class="calc num" data-out="rl:' + c.id + '"></td><td class="calc num" data-out="dv:' + c.id + '"></td>' +
         '<td class="calc num" data-out="vd:' + c.id + '"></td><td class="calc num" data-out="pc:' + c.id + '"></td>' +
         '<td data-out="es:' + c.id + '"></td><td class="desc" data-out="co:' + c.id + '"></td>' +
@@ -1555,8 +1555,8 @@
     if (a === 'nuevo') {
       dialogo({
         titulo: 'Nuevo proyecto',
-        html: '<label class="campo"><span>Nombre del proyecto</span><input name="nombre" required></label>' +
-          '<label class="campo"><span>N.º de proyecto</span><input name="numero"></label>' +
+        html: '<label class="campo"><span>Nombre del proyecto</span><input name="nombre" required placeholder="Ej.: Torre Central — Fase 2"></label>' +
+          '<label class="campo"><span>N.º de proyecto</span><input name="numero" placeholder="Ej.: P-2026-014"></label>' +
           '<label class="campo"><span>Primer nivel (los demás se agregan con «+ Nivel»)</span><input name="nivel" value="NIVEL 1" required></label>',
         ok: 'Crear'
       }).then(function (r) {

@@ -51,13 +51,15 @@ hasta que se digite la corriente (en la fila, o en Administración → Dispositi
 ## Versión en Excel (copia local)
 
 La carpeta `excel/` contiene el mismo cálculo como libro de Excel con fórmulas vivas, listas desplegables dependientes
-(fabricante → «código · qué es — descripción»), catálogos en hojas ocultas, caída de tensión y memoria de cálculo:
+(fabricante → «código · qué es — descripción»), **lazo y nivel por dispositivo**, caída de tensión por lazo, catálogos en hojas ocultas y memoria de cálculo:
 
-- `Calculo_baterias_Alarmas_PLANTILLA.xlsx` — un nivel (NIVEL 1 + FACP-01), listo para llenar.
+- `Calculo_baterias_Alarmas_PLANTILLA.xlsx` — **limpia**: un nivel y un panel sin datos; las casillas de entrada en verde claro y, al seleccionar cada una,
+  aparece un ejemplo tenue (más una línea de ejemplo en gris sobre la tabla de dispositivos).
 - `Calculo_baterias_Alarmas_EJEMPLO.xlsx` — datos del Excel original (resultados de referencia: FACP-01 102.59 Ah → 110 Ah; TRP 12.46 → 12.7 Ah; RPS-01 5.05 → 6.2 Ah).
 - `generar_excel.py` — regenera ambos libros desde `js/catalogo-base.js` (`python excel/generar_excel.py`); después abrirlos en Excel y guardar para que queden los valores calculados.
 
-El libro es independiente de la web (no se sincronizan). Instrucciones de uso dentro del libro, hoja `INSTRUCCIONES`.
+Los lazos se definen en la hoja `CAIDA_TENSION` (panel, nombre, tipo, nivel, cable, longitud); en cada hoja de equipo, la columna **LAZO / SALIDA** asigna el dispositivo a su lazo.
+El libro es independiente de la web (no se sincronizan los datos). Instrucciones de uso dentro del libro, hoja `INSTRUCCIONES`.
 
 ## Estructura
 
