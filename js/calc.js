@@ -7,7 +7,15 @@
 (function (global) {
   'use strict';
 
-  var CATEGORIAS = ['CAT. 1 (típ. 15 cd)', 'CAT. 2 (típ. 30 cd)', 'CAT. 3 (típ. 75 cd)', 'CAT. 4 (típ. 110 cd)', 'BASE AUDIBLE / OTRO'];
+
+  /* Tipos de lazo / salida de un panel (SLC, NAC, IDNAC, 24 VDC, voceo, IDC) */
+  var TIPOS_LAZO = ['SLC', 'NAC', 'IDNAC', '24VDC', 'VOCEO', 'IDC'];
+  // tipo de lazo que le corresponde a un dispositivo según la columna «circuito» del catálogo
+  var LAZO_DE_CIRCUITO = { 'SLC': 'SLC', 'NAC': 'NAC', 'IDNAC': 'IDNAC', 'FUENTE AUX': '24VDC', 'VOCEO': 'VOCEO', 'IDC': 'IDC', 'ZONA': 'IDC' };
+  // tipos de lazo en los que puede ir cada tipo de dispositivo (si no figura, no se valida)
+  var LAZOS_PERMITIDOS = { 'SLC': ['SLC'], 'NAC': ['NAC'], 'IDNAC': ['IDNAC'], 'FUENTE AUX': ['24VDC', 'NAC'], 'VOCEO': ['VOCEO', 'NAC'], 'IDC': ['IDC'], 'ZONA': ['IDC'] };
+
+  function tipoLazoDe(d) { return (d && LAZO_DE_CIRCUITO[d.circuito]) || 'NAC'; }
 
   var PARAMS_DEF = {
     tEspera: 24,       // h — §10.6.7.2.1
@@ -61,6 +69,7 @@
     var iEspU = num(f.iEsp) !== null ? num(f.iEsp) : (d ? num(d.iEspera) : null);
     var iAlmU = num(f.iAlm) !== null ? num(f.iAlm) : (d ? num(d.iAlarma) : null);
     var r = {
+      d: d,
       tag: d ? d.tag : '',
       descripcion: d ? d.descripcion : '',
       circuito: d ? d.circuito : '',
@@ -103,8 +112,25 @@
     };
   }
 
-  function sumarFilas(cx, filas) {
-    var res = (filas || []).map(function (f) { return fila(cx, f); });
+  function mapaCircuitos(proy) {
+    var m = {};
+    ((proy && proy.caida && proy.caida.circuitos) || []).forEach(function (c) { m[c.id] = c; });
+    return m;
+  }
+
+  function sumarFilas(cx, filas, circs) {
+    var res = (filas || []).map(function (f) {
+      var r = fila(cx, f);
+      // el dispositivo debe ir en un lazo de su tipo (un detector SLC no va en un NAC)
+      if (f.circ && !r.aviso) {
+        var c = circs && circs[f.circ];
+        if (!c) { r.aviso = 'El lazo asignado ya no existe'; r.nivel = 'warn'; }
+        else if (r.d && LAZOS_PERMITIDOS[r.d.circuito] && LAZOS_PERMITIDOS[r.d.circuito].indexOf(c.tipo) < 0) {
+          r.aviso = 'Es de tipo ' + r.d.circuito + ' y el lazo es ' + c.tipo; r.nivel = 'warn';
+        }
+      }
+      return r;
+    });
     var iEsp = 0, iAlm = 0, errores = 0;
     res.forEach(function (r) {
       iEsp += r.iEspT || 0;
@@ -116,7 +142,7 @@
 
   /* Hoja BAT_FACP / BAT_TRP */
   function panel(cx, p, proy) {
-    var s = sumarFilas(cx, p.filas);
+    var s = sumarFilas(cx, p.filas, mapaCircuitos(proy));
     s.bat = bateria(cx, s.iEsp, s.iAlm, param(p, proy, 'tEspera'), param(p, proy, 'tAlarma'), param(p, proy, 'fs'));
     s.estado = s.errores ? 'REVISAR' : s.bat.estado;
     return s;
@@ -124,7 +150,7 @@
 
   /* Hoja CALC_FUENTE_AUX: el consumo propio de la fuente se suma a espera y alarma; límite 80 % de I máx */
   function fuente(cx, f, proy) {
-    var s = sumarFilas(cx, f.filas);
+    var s = sumarFilas(cx, f.filas, mapaCircuitos(proy));
     var iPropia = num(f.iPropia) || 0;
     s.iEspDisp = s.iEsp;
     s.iAlmDisp = s.iAlm;
@@ -140,29 +166,37 @@
     return s;
   }
 
-  /* Hoja CALC_CAIDA_TENSION — corrientes unitarias por categoría (fila 13 del Excel) */
-  function unitariosCategorias(cx, caida) {
-    return CATEGORIAS.map(function (_, i) {
-      var d = cx.disp[(caida.categorias || [])[i]];
-      return d ? (num(d.iAlarma) || 0) : 0;
-    });
-  }
-
   function parametrosCaida(proy) {
     var vNom = param(null, proy, 'vNominal');
     var pct = param(null, proy, 'pctFinVida');
     return { vNominal: vNom, vFuente: vNom * pct, vMin: param(null, proy, 'vMin'), iMaxNac: param(null, proy, 'iMaxNac') };
   }
 
-  function circuito(cx, c, unit, pc) {
-    var q = c.q || [];
-    var hayDatos = q.some(function (x) { return num(x) !== null; }) || num(c.otros) !== null;
-    var r = { iMa: null, rKm: null, rLazo: null, vFuente: pc.vFuente, caida: null, vDisp: null, pct: null, estado: '', comentario: '' };
-    if (hayDatos) {
-      var s = 0;
-      for (var i = 0; i < CATEGORIAS.length; i++) s += (num(q[i]) || 0) * unit[i];
-      r.iMa = s + (num(c.otros) || 0);
-    }
+  /* Carga de cada lazo = Σ (cantidad × corriente de alarma) de los dispositivos asignados a él (en mA) */
+  function cargasLazos(cx, proy) {
+    var mapa = {};
+    (proy.paneles || []).concat(proy.fuentes || []).forEach(function (eq) {
+      (eq.filas || []).forEach(function (f) {
+        if (!f.circ) return;
+        var r = fila(cx, f), cant = num(f.cant);
+        if (!r.d || !cant) return;
+        var m = mapa[f.circ] || (mapa[f.circ] = { n: 0, iMa: 0, sinI: 0, bases: false, notif: false });
+        m.n += cant;
+        if (r.iAlmU === null) m.sinI += 1; else m.iMa += cant * r.iAlmU;
+        var tag = r.d.tag || '';
+        if (/^(SB|CO\+SB)/.test(tag)) m.bases = true;
+        if (/^(ST|AV|SPK)/.test(tag)) m.notif = true;
+      });
+    });
+    return mapa;
+  }
+
+  function circuito(cx, c, carga, pc) {
+    carga = carga || { n: 0, iMa: 0, sinI: 0, bases: false, notif: false };
+    var otros = num(c.otros);
+    var hayDatos = carga.n > 0 || otros !== null;
+    var r = { n: carga.n, iDisp: carga.iMa, iMa: null, rKm: null, rLazo: null, vFuente: pc.vFuente, caida: null, vDisp: null, pct: null, estado: '', comentario: '' };
+    if (hayDatos) r.iMa = carga.iMa + (otros || 0);
     var cab = c.cable ? cx.cables[c.cable] : null;
     if (cab) r.rKm = num(cab.rKm);
     var L = num(c.long);
@@ -174,27 +208,30 @@
       var excI = r.iMa > pc.iMaxNac * 1000 + 1e-9;
       if (r.vDisp >= pc.vMin && !excI) r.estado = 'OK';
       else r.estado = excI ? 'ERROR: I > I MÁX NAC' : 'ERROR: V < V MÍN';
-      var mezcla = (num(q[4]) || 0) > 0 && [0, 1, 2, 3].some(function (k) { return (num(q[k]) || 0) > 0; });
-      if (mezcla) r.comentario = 'NO COMBINAR BASES AUDIBLES CON NAC';
+      if (carga.bases && carga.notif) r.comentario = 'NO COMBINAR BASES AUDIBLES CON NAC';
       else if (r.estado !== 'OK') r.comentario = 'AUMENTE CALIBRE, REDUZCA DISTANCIA O DIVIDA EL CIRCUITO';
     } else if (hayDatos || c.cable || L !== null) {
       r.estado = 'INCOMPLETO';
-      r.comentario = !hayDatos ? 'Digite cantidades u OTROS (mA)' : (!cab ? 'Seleccione el cable' : 'Digite la longitud');
+      r.comentario = !hayDatos ? 'Asigne dispositivos al lazo (o digite OTROS en mA)' : (!cab ? 'Seleccione el cable' : 'Digite la longitud');
+    }
+    if (carga.sinI > 0) {
+      r.estado = 'INCOMPLETO';
+      r.comentario = 'Hay dispositivos del lazo sin corriente definida: la corriente real es mayor';
     }
     return r;
   }
 
   function caida(cx, proy) {
     var cd = proy.caida || {};
-    var unit = unitariosCategorias(cx, cd);
     var pc = parametrosCaida(proy);
-    var res = (cd.circuitos || []).map(function (c) { return circuito(cx, c, unit, pc); });
+    var cargas = cargasLazos(cx, proy);
+    var res = (cd.circuitos || []).map(function (c) { return circuito(cx, c, cargas[c.id], pc); });
     var totalMa = 0, errores = 0;
     res.forEach(function (r) {
       totalMa += r.iMa || 0;
       if (r.estado.indexOf('ERROR') === 0) errores++;
     });
-    return { unit: unit, params: pc, circuitos: res, totalA: totalMa / 1000, errores: errores };
+    return { params: pc, circuitos: res, totalA: totalMa / 1000, errores: errores };
   }
 
   /* Resumen de cantidades de dispositivos por TAG (equivalente al «resumen» de la memoria) */
@@ -232,7 +269,8 @@
   }
 
   global.Calc = {
-    CATEGORIAS: CATEGORIAS,
+    TIPOS_LAZO: TIPOS_LAZO,
+    tipoLazoDe: tipoLazoDe,
     PARAMS_DEF: PARAMS_DEF,
     num: num,
     preparar: preparar,

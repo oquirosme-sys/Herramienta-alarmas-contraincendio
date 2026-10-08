@@ -98,13 +98,6 @@
     return d ? d.id : '';
   }
 
-  function categoriasDefault(fab) {
-    var tags = ['AV-P 15cd', 'AV-P 30cd', 'AV-P 75cd', 'AV-P 110cd'];
-    var res = tags.map(function (t) { return buscarDisp(fab, null, t) || buscarDisp(fab, null, t.replace('AV-P', 'ST-P')); });
-    res.push(buscarDisp(fab, null, 'SB'));
-    return res;
-  }
-
   function nuevoProyecto(nombre) {
     var fab = (S.cat.fabricantes[0] || {}).id || '';
     return {
@@ -113,7 +106,7 @@
       fabricante: fab, normativa: 'NFPA 72:2022 · UL 864 · NEC (NFPA 70) Art. 760',
       params: clonar(Calc.PARAMS_DEF),
       niveles: [], paneles: [], fuentes: [],
-      caida: { categorias: categoriasDefault(fab), circuitos: [] }
+      caida: { circuitos: [] }
     };
   }
 
@@ -123,14 +116,33 @@
     p.paneles = p.paneles || [];
     p.fuentes = p.fuentes || [];
     p.caida = p.caida || {};
-    p.caida.categorias = p.caida.categorias || categoriasDefault(p.fabricante);
     p.caida.circuitos = p.caida.circuitos || [];
-    p.paneles.concat(p.fuentes).forEach(function (e) { e.filas = e.filas || []; });
+    // Proyectos anteriores: los circuitos se capturaban por categorías de cantidad; ahora la corriente sale de los dispositivos
+    // asignados a cada lazo. Se conserva el resultado pasando lo capturado a «otros (mA)».
+    var cats = p.caida.categorias || [];
+    p.caida.circuitos.forEach(function (c) {
+      if (c.q && c.q.some(function (x) { return Calc.num(x) !== null; })) {
+        var suma = 0;
+        c.q.forEach(function (x, i) { var d = S.cx.disp[cats[i]]; suma += (Calc.num(x) || 0) * (d ? Calc.num(d.iAlarma) || 0 : 0); });
+        c.otros = (Calc.num(c.otros) || 0) + suma;
+      }
+      delete c.q;
+      c.tipo = c.tipo || tipoPorNombre(c.circuito);
+      c.nivel = c.nivel || '';
+      c.desc = c.desc || '';
+    });
+    delete p.caida.categorias;
+    p.paneles.concat(p.fuentes).forEach(function (e) { e.filas = e.filas || []; e.filas.forEach(function (f) { f.circ = f.circ || ''; }); });
     return p;
   }
 
-  function nuevaFila(fab, zona) {
-    return { id: uid('r'), fab: fab || S.proy.fabricante, disp: '', zona: zona || '', cant: null, iEsp: null, iAlm: null, obs: '' };
+  function nuevaFila(fab, zona, circ) {
+    return { id: uid('r'), fab: fab || S.proy.fabricante, disp: '', zona: zona || '', circ: circ || '', cant: null, iEsp: null, iAlm: null, obs: '' };
+  }
+
+  function tipoPorNombre(nombre) {
+    var m = String(nombre || '').toUpperCase().replace(/\s+/g, '').match(/^(IDNAC|SLC|NAC|VOCEO|IDC|24V)/);
+    return m ? (m[1] === '24V' ? '24VDC' : m[1]) : 'NAC';
   }
 
   function tagLibre(base) {
@@ -178,8 +190,27 @@
     return p;
   }
 
-  function nuevoCircuito() {
-    return { id: uid('c'), fuente: (S.proy.paneles[0] || {}).id || '', circuito: '', desc: '', q: [null, null, null, null, null], otros: null, cable: buscarCable('5220UL'), long: null };
+  /* Lazo o salida de un panel: tipo (SLC, NAC, IDNAC, 24 VDC, voceo, IDC), nivel, cable (según la simbología: 5220UL; voceo 5220FL) y longitud */
+  function nuevoCircuito(equipoId, tipo) {
+    tipo = tipo || 'NAC';
+    var eq = equipoId || (S.proy.paneles[0] || {}).id || '';
+    var n = S.proy.caida.circuitos.filter(function (c) { return c.fuente === eq && c.tipo === tipo; }).length + 1;
+    return { id: uid('c'), fuente: eq, tipo: tipo, circuito: (tipo === '24VDC' ? '24 VDC' : tipo) + ' ' + n, nivel: '', desc: '', otros: null, cable: buscarCable(tipo === 'VOCEO' ? '5220FL' : '5220UL'), long: null };
+  }
+  function etiquetaTipo(t) { return t === '24VDC' ? '24 VDC' : (t === 'VOCEO' ? 'Voceo' : t); }
+  function optsTiposLazo(sel) { return opts(Calc.TIPOS_LAZO.map(function (t) { return { v: t, l: etiquetaTipo(t) }; }), sel); }
+  function lazosDe(eqId) { return S.proy.caida.circuitos.filter(function (c) { return c.fuente === eqId; }); }
+  function optsLazos(eq, sel) {
+    var h = '<option value="">— sin lazo —</option>' + lazosDe(eq.id).map(function (c) {
+      return '<option value="' + esc(c.id) + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.circuito) + (c.nivel ? ' · ' + esc(c.nivel) : '') + '</option>';
+    }).join('');
+    if (sel && !porId(S.proy.caida.circuitos, sel)) h += '<option value="' + esc(sel) + '" selected>(lazo eliminado)</option>';
+    return h + '<option value="__nuevo__">＋ Nuevo lazo…</option>';
+  }
+  function quitarLazos(eqId) {
+    var ids = lazosDe(eqId).map(function (c) { return c.id; });
+    S.proy.caida.circuitos = S.proy.caida.circuitos.filter(function (c) { return ids.indexOf(c.id) < 0; });
+    S.proy.paneles.concat(S.proy.fuentes).forEach(function (e) { e.filas.forEach(function (f) { if (ids.indexOf(f.circ) >= 0) f.circ = ''; }); });
   }
   function buscarCable(modelo) {
     var c = (S.cat.cables || []).filter(function (x) { return x.modelo === modelo; })[0];
@@ -211,11 +242,12 @@
     fr.obs = '(fila de ejemplo — reemplazar)';
     rps.filas.push(fr);
     p.fuentes.push(rps);
-    var c1 = nuevoCircuito();
-    c1.fuente = facp.id; c1.circuito = 'NAC 1'; c1.desc = 'Parqueo — ejemplo'; c1.q = [5, 8, null, null, null]; c1.long = 150;
-    var c2 = nuevoCircuito();
-    c2.fuente = facp.id; c2.circuito = 'SLC 1'; c2.desc = 'Lazo detección N1-N3 — ejemplo'; c2.otros = 1500; c2.long = 350;
-    p.caida.circuitos.push(c1, c2);
+    var c1 = nuevoCircuito(facp.id, 'NAC');
+    c1.nivel = 'NIVEL 1'; c1.desc = 'Parqueo — ejemplo'; c1.otros = 1042; c1.long = 150;     // 5 × 74 mA + 8 × 84 mA (Excel original)
+    p.caida.circuitos.push(c1);
+    var c2 = nuevoCircuito(facp.id, 'SLC');
+    c2.nivel = 'NIVEL 1'; c2.desc = 'Lazo detección N1-N3 — ejemplo'; c2.otros = 1500; c2.long = 350;
+    p.caida.circuitos.push(c2);
     S.proy = prev;
     return p;
   }
@@ -641,20 +673,40 @@
         campo('I propia de la fuente (A)', B('iPropia', 'num'), eq.iPropia, { ayuda: 'Se suma en espera y en alarma' }) : '') +
       '</div><datalist id="dl-talarma"><option value="5"><option value="15"></datalist></div></section>');
 
+    // Lazos y salidas del equipo
+    var lazos = lazosDe(eq.id);
+    h.push('<section class="card"><div class="card-h"><h3>Lazos y salidas de este equipo</h3>' +
+      '<span class="nota">Defina los SLC, NAC, IDNAC y circuitos de 24 VDC que salen del equipo; luego asigne cada dispositivo a su lazo. La caída de tensión usa estos lazos.</span></div>' +
+      '<div class="card-b flush tabla-wrap"><table class="t"><thead><tr><th>Lazo / salida</th><th>Tipo</th><th>Nivel</th><th>Cable</th><th class="num">Long. ida (m)</th>' +
+      '<th class="num">Disp.</th><th class="num">I alarma (mA)</th><th class="num">V disp. (V)</th><th>Estado</th><th></th></tr></thead><tbody>' +
+      (lazos.length ? lazos.map(function (c) {
+        var b = function (k, t) { return 'data-o="circ" data-id="' + esc(c.id) + '" data-k="' + k + '"' + (t ? ' data-t="' + t + '" type="number" step="any"' : ''); };
+        return '<tr><td><input class="in w-sm" ' + b('circuito') + ' data-re="vista" value="' + esc(c.circuito) + '"></td>' +
+          '<td><select class="in w-sm" ' + b('tipo') + ' data-re="vista">' + optsTiposLazo(c.tipo) + '</select></td>' +
+          '<td><select class="in w-md" ' + b('nivel') + ' data-re="vista">' + optsNiveles(c.nivel) + '</select></td>' +
+          '<td><select class="in w-md" ' + b('cable') + '>' + optsCables(c.cable) + '</select></td>' +
+          '<td><input class="in w-xs" min="0" ' + b('long', 'num') + ' value="' + fmtN(c.long) + '"></td>' +
+          '<td class="calc num" data-out="n:' + c.id + '"></td><td class="calc num" data-out="i:' + c.id + '"></td><td class="calc num" data-out="vd:' + c.id + '"></td>' +
+          '<td data-out="es:' + c.id + '"></td>' +
+          '<td><button class="btn-icon del" title="Eliminar lazo" data-act="circ-del" data-id="' + esc(c.id) + '">✕</button></td></tr>';
+      }).join('') : '<tr><td colspan="10" class="vacio">Sin lazos. Agregue los que salen de este equipo (SLC, NAC, 24 VDC…) para poder asignar los dispositivos.</td></tr>') +
+      '</tbody></table></div><div class="card-b" style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid var(--border)">' +
+      Calc.TIPOS_LAZO.map(function (t) { return '<button class="btn btn-sm" data-act="lazo-add" data-eq="' + esc(eq.id) + '" data-tipo="' + t + '">+ ' + esc(etiquetaTipo(t)) + '</button>'; }).join('') +
+      '</div></section>');
+
     // Dispositivos
     h.push('<section class="card"><div class="card-h"><h3>Dispositivos conectados</h3>' +
-      '<span class="nota">Flujo: 1) Fabricante → 2) Modelo → 3) Nivel/zona y cantidad. ' + (esF ? '' : 'Incluya el consumo del panel/transponder como primera fila. ') +
+      '<span class="nota">Flujo: 1) Fabricante → 2) Modelo → 3) Nivel y lazo → 4) Cantidad. ' + (esF ? '' : 'Incluya el consumo del panel/transponder como primera fila. ') +
       'Las corrientes unitarias vienen del catálogo; si digita un valor, reemplaza el de catálogo (amarillo).</span></div>' +
-      '<div class="card-b flush tabla-wrap"><table class="t"><thead><tr><th class="idx">#</th><th>Fabricante</th><th>Modelo / descripción</th><th>TAG</th><th>Nivel / zona</th>' +
+      '<div class="card-b flush tabla-wrap"><table class="t"><thead><tr><th class="idx">#</th><th>Fabricante</th><th>Modelo / descripción</th><th>TAG</th><th>Nivel</th><th>Lazo / salida</th>' +
       '<th class="num">Cant.</th><th class="num">I espera unit. (mA)</th><th class="num">I espera total (A)</th><th class="num">I alarma unit. (mA)</th><th class="num">I alarma total (A)</th><th>Observación</th><th></th><th></th></tr></thead><tbody>');
     eq.filas.forEach(function (f, i) { h.push(filaHTML(ref, f, i)); });
-    if (!eq.filas.length) h.push('<tr><td colspan="13" class="vacio">Sin dispositivos. Use «+ Fila» para comenzar.</td></tr>');
-    h.push('</tbody><tfoot><tr><td colspan="7" style="text-align:right">TOTALES' + (esF ? ' (incluye consumo propio de la fuente)' : '') + ':</td>' +
+    if (!eq.filas.length) h.push('<tr><td colspan="14" class="vacio">Sin dispositivos. Use «+ Fila» para comenzar.</td></tr>');
+    h.push('</tbody><tfoot><tr><td colspan="8" style="text-align:right">TOTALES' + (esF ? ' (incluye consumo propio de la fuente)' : '') + ':</td>' +
       '<td class="num" data-out="tot-ie"></td><td></td><td class="num" data-out="tot-ia"></td><td colspan="3"></td></tr></tfoot></table></div>' +
       '<div class="card-b" style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid var(--line)">' +
       '<button class="btn primary btn-sm" data-act="fila-add" data-n="1">+ Fila</button><button class="btn btn-sm" data-act="fila-add" data-n="5">+ 5 filas</button>' +
-      '<button class="btn btn-sm" data-act="filas-limpiar">Quitar filas vacías</button></div>' +
-      '<datalist id="dl-niveles">' + P.niveles.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist></section>');
+      '<button class="btn btn-sm" data-act="filas-limpiar">Quitar filas vacías</button></div></section>');
 
     // Cálculo de batería
     h.push('<div class="grid-2col"><section class="card"><div class="card-h"><h3>Cálculo de capacidad de batería</h3><span class="nota">NFPA 72:2022 §10.6.7 / UL 864</span></div>' +
@@ -679,6 +731,15 @@
           tr.querySelectorAll('[data-k="iEsp"],[data-k="iAlm"]').forEach(function (inp) { inp.classList.toggle('editado', inp.value.trim() !== ''); });
         }
       });
+      var RC = Calc.caida(S.cx, P);
+      P.caida.circuitos.forEach(function (c, i) {
+        if (c.fuente !== eq.id) return;
+        var q = RC.circuitos[i];
+        out('n:' + c.id, q.n ? fmt(q.n, 0) : '—');
+        out('i:' + c.id, q.iMa === null ? '—' : fmt(q.iMa, 1));
+        out('vd:' + c.id, q.vDisp === null ? '—' : fmt(q.vDisp, 2));
+        out('es:' + c.id, q.estado ? badge(q.estado) : '—');
+      });
       out('tot-ie', fmt(r.iEsp, 4));
       out('tot-ia', fmt(r.iAlm, 4));
       out('bateria', bloqueBateria(r.bat, r.errores));
@@ -699,7 +760,8 @@
       '<td><select class="in w-sm" ' + b('fab') + ' data-re="vista">' + optsFabricantes(f.fab) + '</select></td>' +
       '<td><select class="in w-xl" ' + b('disp') + ' data-re="vista">' + optsModelo(f.fab, f.disp) + '</select></td>' +
       '<td class="calc" data-out="tag:' + f.id + '"></td>' +
-      '<td><input class="in w-sm" list="dl-niveles" ' + b('zona') + ' value="' + esc(f.zona) + '"></td>' +
+      '<td><select class="in w-md" ' + b('zona') + '>' + optsNiveles(f.zona) + '</select></td>' +
+      '<td><select class="in w-md" ' + b('circ') + '>' + optsLazos(equipo(ref), f.circ) + '</select></td>' +
       '<td><input class="in w-xs" type="number" min="0" step="1" ' + b('cant', 'num') + ' value="' + fmtN(f.cant) + '"></td>' +
       '<td><input class="in w-xs" type="number" step="any" ' + b('iEsp', 'num') + ' value="' + fmtN(f.iEsp) + '" placeholder="' + (d ? fmtN(d.iEspera) : '') + '"></td>' +
       '<td class="calc num" data-out="ie:' + f.id + '"></td>' +
@@ -743,7 +805,7 @@
     var P = S.proy, cd = P.caida, pp = P.params;
     var Bp = function (k, t) { return { o: 'params', k: k, t: t }; };
     var h = [];
-    h.push('<div class="encabezado"><div><h2>Caída de tensión en lazos</h2><div class="sub">NAC / SLC / 24 VDC — método de carga concentrada al final del lazo (conservador, NFPA 72 Anexo A).</div></div>' +
+    h.push('<div class="encabezado"><div><h2>Caída de tensión en lazos</h2><div class="sub">SLC / NAC / IDNAC / 24 VDC — método de carga concentrada al final del lazo (conservador, NFPA 72 Anexo A).</div></div>' +
       '<div class="acciones"><button class="btn" data-act="ir" data-tab="memoria">Ver memoria de cálculo →</button></div></div>');
     h.push('<div class="grid-2col"><section class="card"><div class="card-h"><h3>Parámetros globales</h3><span class="nota">Compartidos con la pestaña Proyecto</span></div><div class="card-b"><div class="grid c2">' +
       campo('Tensión nominal (V)', Bp('vNominal', 'num'), pp.vNominal) +
@@ -751,29 +813,24 @@
       campo('Tensión mínima de dispositivo (V)', Bp('vMin', 'num'), pp.vMin, { ayuda: 'Regulados UL 1971/464: típico 16–33 V' }) +
       campo('I máx. por circuito NAC (A)', Bp('iMaxNac', 'num'), pp.iMaxNac, { ayuda: 'Ej.: NAC de 3 A × 80 % = 2.4 A' }) +
       '</div></div></section>' +
-      '<div class="ayuda"><b>Método:</b> I<sub>circuito</sub> = Σ(cantidad × mA unitario de ficha) + OTROS. R<sub>lazo</sub> = 2 × L × R(Ω/km)/1000. ' +
+      '<div class="ayuda"><b>Cómo se calcula:</b> los lazos se definen en la pestaña de cada panel («Lazos y salidas»); cada dispositivo se asigna a su lazo y a su nivel.<br>' +
+      'I<sub>lazo</sub> = Σ(cantidad × mA de alarma de los dispositivos asignados) + OTROS. R<sub>lazo</sub> = 2 × L × R(Ω/km)/1000. ' +
       'V<sub>disp</sub> = V<sub>fuente</sub> − I × R<sub>lazo</sub>. Aceptación: V<sub>disp</sub> ≥ V<sub>mín</sub> e I ≤ I máx. NAC.<br>' +
-      'Para lazos SLC o 24 VDC digite la corriente total del lazo en la columna <b>OTROS (mA)</b>.</div></div>');
+      'Use <b>OTROS (mA)</b> solo para cargas que no están en la lista de dispositivos.</div></div>');
 
-    h.push('<section class="card"><div class="card-h"><h3>Corrientes unitarias por categoría</h3><span class="nota">Seleccione el modelo de ficha de cada columna; el mA de alarma se carga solo</span></div><div class="card-b flush tabla-wrap"><table class="t"><thead><tr><th></th>' +
-      Calc.CATEGORIAS.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody><tr><td class="muted">Modelo</td>' +
-      Calc.CATEGORIAS.map(function (c, i) {
-        return '<td><select class="in w-lg" data-o="caida" data-k="categorias.' + i + '">' + optsDispTodos(cd.categorias[i]) + '</select></td>';
-      }).join('') + '</tr><tr><td class="muted">I alarma unit. (mA)</td>' +
-      Calc.CATEGORIAS.map(function (c, i) { return '<td class="calc sel-cat" data-out="cu:' + i + '"></td>'; }).join('') + '</tr></tbody></table></div></section>');
-
-    h.push('<section class="card"><div class="card-h"><h3>Circuitos</h3><span class="nota">Una sola tabla para todo el proyecto: use FUENTE / PANEL para identificar de dónde sale cada lazo</span></div>' +
-      '<div class="card-b flush tabla-wrap"><table class="t"><thead><tr><th class="idx">#</th><th>Fuente / panel</th><th>Circuito</th><th>Nivel / descripción</th>' +
-      [1, 2, 3, 4].map(function (n) { return '<th class="num">Cat. ' + n + '</th>'; }).join('') + '<th class="num">Base aud.</th><th class="num">Otros (mA)</th>' +
-      '<th class="num">I circuito (mA)</th><th>Cable</th><th class="num">R (Ω/km)</th><th class="num">Long. ida (m)</th><th class="num">R lazo (Ω)</th>' +
+    h.push('<section class="card"><div class="card-h"><h3>Lazos y salidas</h3><span class="nota">Todos los lazos del proyecto; el equipo del que salen se elige en «Fuente / panel»</span></div>' +
+      '<div class="card-b flush tabla-wrap"><table class="t"><thead><tr><th class="idx">#</th><th>Fuente / panel</th><th>Lazo</th><th>Tipo</th><th>Nivel</th><th>Descripción</th>' +
+      '<th class="num">Disp.</th><th class="num">Otros (mA)</th><th class="num">I lazo (mA)</th><th>Cable</th><th class="num">R (Ω/km)</th><th class="num">Long. ida (m)</th><th class="num">R lazo (Ω)</th>' +
       '<th class="num">Caída (V)</th><th class="num">V disp. (V)</th><th class="num">% caída</th><th>Estado</th><th>Comentario</th><th></th></tr></thead><tbody>');
     cd.circuitos.forEach(function (c, i) {
       var b = function (k, t) { return 'data-o="circ" data-id="' + esc(c.id) + '" data-k="' + k + '"' + (t ? ' data-t="' + t + '" type="number" step="any"' : ''); };
       h.push('<tr><td class="idx">' + (i + 1) + '</td>' +
         '<td><select class="in w-sm" ' + b('fuente') + '>' + optsEquipos(c.fuente) + '</select></td>' +
-        '<td><input class="in w-sm" ' + b('circuito') + ' value="' + esc(c.circuito) + '" placeholder="NAC 1"></td>' +
+        '<td><input class="in w-sm" ' + b('circuito') + ' value="' + esc(c.circuito) + '" placeholder="SLC 1"></td>' +
+        '<td><select class="in w-sm" ' + b('tipo') + '>' + optsTiposLazo(c.tipo) + '</select></td>' +
+        '<td><select class="in w-md" ' + b('nivel') + '>' + optsNiveles(c.nivel) + '</select></td>' +
         '<td><input class="in w-md" ' + b('desc') + ' value="' + esc(c.desc) + '"></td>' +
-        [0, 1, 2, 3, 4].map(function (k) { return '<td><input class="in w-xs" min="0" ' + b('q.' + k, 'num') + ' value="' + fmtN((c.q || [])[k]) + '"></td>'; }).join('') +
+        '<td class="calc num" data-out="n:' + c.id + '"></td>' +
         '<td><input class="in w-xs" min="0" ' + b('otros', 'num') + ' value="' + fmtN(c.otros) + '"></td>' +
         '<td class="calc num" data-out="i:' + c.id + '"></td>' +
         '<td><select class="in w-md" ' + b('cable') + '>' + optsCables(c.cable) + '</select></td>' +
@@ -785,17 +842,17 @@
         '<td style="white-space:nowrap"><button class="btn-icon" title="Duplicar" data-act="circ-dup" data-id="' + esc(c.id) + '">⧉</button>' +
         '<button class="btn-icon del" title="Eliminar" data-act="circ-del" data-id="' + esc(c.id) + '">✕</button></td></tr>');
     });
-    if (!cd.circuitos.length) h.push('<tr><td colspan="23" class="vacio">Sin circuitos. Use «+ Circuito» para comenzar.</td></tr>');
-    h.push('</tbody><tfoot><tr><td colspan="10" style="text-align:right">TOTAL (A):</td><td class="num" data-out="tot"></td><td colspan="12" class="muted" style="font-weight:400">Verificar contra la capacidad total del panel / fuente</td></tr></tfoot></table></div>' +
-      '<div class="card-b" style="display:flex; gap:8px; border-top:1px solid var(--line)"><button class="btn primary btn-sm" data-act="circ-add" data-n="1">+ Circuito</button><button class="btn btn-sm" data-act="circ-add" data-n="5">+ 5 circuitos</button></div></section>');
+    if (!cd.circuitos.length) h.push('<tr><td colspan="19" class="vacio">Sin lazos. Agréguelos aquí o en la pestaña de cada panel («Lazos y salidas»).</td></tr>');
+    h.push('</tbody><tfoot><tr><td colspan="8" style="text-align:right">TOTAL (A):</td><td class="num" data-out="tot"></td><td colspan="10" class="muted" style="font-weight:400">Verificar contra la capacidad total del panel / fuente</td></tr></tfoot></table></div>' +
+      '<div class="card-b" style="display:flex; gap:8px; border-top:1px solid var(--border)"><button class="btn primary btn-sm" data-act="circ-add" data-n="1">+ Lazo</button></div></section>');
     vista.innerHTML = h.join('');
 
     S.pintor = function () {
       var R = Calc.caida(S.cx, P);
       out('vfuente', '= ' + fmt(R.params.vFuente, 2) + ' V');
-      R.unit.forEach(function (u, i) { out('cu:' + i, fmt(u, 1)); });
       cd.circuitos.forEach(function (c, i) {
         var r = R.circuitos[i];
+        out('n:' + c.id, r.n ? fmt(r.n, 0) : '—');
         out('i:' + c.id, r.iMa === null ? '' : fmt(r.iMa, 1));
         out('r:' + c.id, r.rKm === null ? '' : fmt(r.rKm, 2));
         out('rl:' + c.id, r.rLazo === null ? '' : fmt(r.rLazo, 3));
@@ -940,20 +997,14 @@
     // Tabla 5 · caída de tensión
     var cds = P.caida.circuitos;
     var estCaida = function (e) { return e ? crit(e.replace(/^ERROR: /, '')) : '—'; };
-    h.push(tablaDoc(ctx, 'Caída de tensión por circuito (carga concentrada)', [{ t: 'fuente / circuito', w: 2 }, { t: 'descripción', w: 2.7 }, { t: 'I (mA)', w: 1.2, num: true },
-      { t: 'cable', w: 2.5 }, { t: 'L (m)', w: 1, num: true }, { t: 'R lazo (Ω)', w: 1.3, num: true }, { t: 'caída (V)', w: 1.2, num: true }, { t: 'V disp. (V)', w: 1.3, num: true },
-      { t: 'caída (%)', w: 1.2, num: true }, { t: 'estado', w: 2 }],
+    h.push(tablaDoc(ctx, 'Caída de tensión por lazo (carga concentrada)', [{ t: 'fuente / lazo', w: 1.9 }, { t: 'nivel / descripción', w: 2.4 }, { t: 'disp.', w: 1.3, num: true }, { t: 'I (mA)', w: 1.2, num: true },
+      { t: 'cable', w: 2.3 }, { t: 'L (m)', w: 1, num: true }, { t: 'R lazo (Ω)', w: 1.3, num: true }, { t: 'caída (V)', w: 1.5, num: true }, { t: 'V disp. (V)', w: 1.4, num: true },
+      { t: 'caída (%)', w: 1.5, num: true }, { t: 'estado', w: 2 }],
     cds.map(function (c, i) {
       var r = R.caida.circuitos[i], cab = S.cx.cables[c.cable];
-      return [dato(nombreEquipo(c.fuente)) + '<br>' + dato(c.circuito), dato(c.desc), fmt(r.iMa, 0), cab ? esc(cab.modelo + ' ' + cab.awg + ' AWG') : '—', fmt(Calc.num(c.long), 0), fmt(r.rLazo, 2),
+      return [dato(nombreEquipo(c.fuente)) + '<br>' + dato(c.circuito), dato([c.nivel, c.desc].filter(Boolean).join(' — ')), r.n ? fmt(r.n, 0) : '—', fmt(r.iMa, 0), cab ? esc(cab.modelo + ' ' + cab.awg + ' AWG') : '—', fmt(Calc.num(c.long), 0), fmt(r.rLazo, 2),
         fmt(r.caida, 2), fmt(r.vDisp, 2), r.pct === null ? '—' : fmt(r.pct * 100, 1), estCaida(r.estado)];
-    }), 'Sin circuitos registrados.'));
-    if (cds.length) {
-      h.push('<p class="note">Corrientes unitarias por categoría: ' + Calc.CATEGORIAS.map(function (c, i) {
-        var d = S.cx.disp[P.caida.categorias[i]];
-        return esc(c) + ' = ' + (d ? esc((d.modelo && d.modelo !== '—' ? d.modelo : d.tag) + ' (' + fmt(R.caida.unit[i], 0) + ' mA)') : '—');
-      }).join('; ') + '.</p>');
-    }
+    }), 'Sin lazos registrados.'));
 
     // Resumen de dispositivos: con más de 4 equipos la matriz por equipo no cabe en carta vertical y se omite (ver anexo)
     var RD = R.dispositivos, porEquipo = RD.columnas.length <= 4;
@@ -994,7 +1045,7 @@
         });
         if (filas.length) filas.push({ tot: true, c: [{ h: 'Totales' + (x.f ? ' (incluye consumo propio ' + fmt(Calc.num(x.e.iPropia) || 0, 3) + ' A)' : ''), s: 5 }, fmt(x.r.iEsp, 4), '—', fmt(x.r.iAlm, 4)] });
         h.push(tablaDoc(ctx, 'Detalle de cargas — ' + x.e.tag + (x.e.nivel ? ' · ' + x.e.nivel : '') + (x.f ? ' (fuente auxiliar)' : ''),
-          [{ t: 'código', w: 2.2 }, { t: 'descripción', w: 4.2 }, { t: 'nivel / zona', w: 2.6 }, { t: 'cant.', w: 1, num: true }, { t: 'I esp. unit. (mA)', w: 1.3, num: true },
+          [{ t: 'código', w: 2.2 }, { t: 'descripción', w: 4.2 }, { t: 'nivel / zona', w: 2.6 }, { t: 'cant.', w: 1.3, num: true }, { t: 'I esp. unit. (mA)', w: 1.3, num: true },
             { t: 'I esp. total (A)', w: 1.4, num: true }, { t: 'I alm. unit. (mA)', w: 1.3, num: true }, { t: 'I alm. total (A)', w: 1.4, num: true }], filas, 'Sin dispositivos.'));
         h.push('<p>Ah = ' + fmt(b.iEsp, 4) + ' A × ' + fmt(b.tEsp, 0) + ' h + ' + fmt(b.iAlm, 4) + ' A × ' + fmt(b.tAlmMin, 0) + '/60 h = ' + fmt(b.ahCalc, 3) + ' Ah; × (1 + ' + fmt(b.fs * 100, 0) + ' %) = ' +
           fmt(b.ahReq, 3) + ' Ah, con batería seleccionada de ' + (b.ah !== null ? fmt(b.ah, 1) + ' Ah (' + esc(b.referencia) + ')' : '<span class="crit-err">capacidad que excede el catálogo</span>') + '.</p>');
@@ -1194,6 +1245,7 @@
       return;
     }
     if (!el.dataset || !el.dataset.k) return;
+    if (el.dataset.o === 'fila' && el.dataset.k === 'circ' && el.value === '__nuevo__') { acciones['lazo-nuevo'](el); return; }
     if (el.tagName === 'SELECT') aplicar(el);
     var re = el.dataset.re;
     if (re === 'vista' || re === 'all') renderVista();
@@ -1205,7 +1257,7 @@
   function nuevosIdsEquipo(e, prefijo) {
     var c = clonar(e);
     c.id = uid(prefijo);
-    c.filas.forEach(function (f) { f.id = uid('r'); });
+    c.filas.forEach(function (f) { f.id = uid('r'); f.circ = ''; });
     return c;
   }
 
@@ -1301,6 +1353,7 @@
       var P = S.proy, p = porId(P.paneles, b.dataset.id);
       confirmar('Eliminar panel', '¿Eliminar <b>' + esc(p.tag) + '</b> y sus ' + p.filas.length + ' fila(s) de dispositivos?').then(function (ok) {
         if (!ok) return;
+        quitarLazos(p.id);
         P.paneles = P.paneles.filter(function (x) { return x !== p; });
         if (S.tab === 'p:' + p.id) S.tab = 'proyecto';
         proyectoCambiado(); render();
@@ -1323,6 +1376,7 @@
       var P = S.proy, f = porId(P.fuentes, b.dataset.id);
       confirmar('Eliminar fuente auxiliar', '¿Eliminar <b>' + esc(f.tag) + '</b>?').then(function (ok) {
         if (!ok) return;
+        quitarLazos(f.id);
         P.fuentes = P.fuentes.filter(function (x) { return x !== f; });
         if (S.tab === 'f:' + f.id) S.tab = 'proyecto';
         proyectoCambiado(); render();
@@ -1332,7 +1386,7 @@
     'fila-add': function (b) {
       var eq = equipo(S.tab), n = +b.dataset.n || 1;
       var ult = eq.filas[eq.filas.length - 1];
-      for (var i = 0; i < n; i++) eq.filas.push(nuevaFila(ult ? ult.fab : S.proy.fabricante, ult ? ult.zona : eq.nivel));
+      for (var i = 0; i < n; i++) eq.filas.push(nuevaFila(ult ? ult.fab : S.proy.fabricante, ult ? ult.zona : eq.nivel, ult ? ult.circ : ''));
       proyectoCambiado(); renderVista();
       var sel = vista.querySelectorAll('select[data-k="disp"]');
       if (sel.length) sel[sel.length - n].focus();
@@ -1355,23 +1409,48 @@
       proyectoCambiado(); renderVista();
     },
 
+    'lazo-add': function (b) {
+      var c = nuevoCircuito(b.dataset.eq, b.dataset.tipo);
+      var eq = porId(S.proy.paneles, b.dataset.eq) || porId(S.proy.fuentes, b.dataset.eq);
+      c.nivel = (eq && eq.nivel) || '';
+      S.proy.caida.circuitos.push(c);
+      proyectoCambiado(); renderVista();
+      toast('Lazo ' + c.circuito + ' agregado');
+    },
+    'lazo-nuevo': function (sel) {
+      var eq = equipo(sel.dataset.eq), f = porId(eq.filas, sel.dataset.id), d = S.cx.disp[f.disp];
+      dialogo({
+        titulo: 'Nuevo lazo en ' + eq.tag,
+        html: '<label class="campo"><span>Tipo de lazo</span><select name="tipo">' + optsTiposLazo(Calc.tipoLazoDe(d)) + '</select></label>' +
+          '<label class="campo"><span>Nombre (opcional)</span><input name="nombre" placeholder="Ej.: SLC 2"></label>',
+        ok: 'Crear'
+      }).then(function (r) {
+        if (!r) { renderVista(); return; }
+        var c = nuevoCircuito(eq.id, r.tipo);
+        if (r.nombre.trim()) c.circuito = r.nombre.trim();
+        c.nivel = f.zona || eq.nivel || '';
+        S.proy.caida.circuitos.push(c);
+        f.circ = c.id;
+        proyectoCambiado(); renderVista();
+        toast('Lazo ' + c.circuito + ' creado y asignado');
+      });
+    },
     'circ-add': function (b) {
-      var n = +b.dataset.n || 1, cs = S.proy.caida.circuitos, ult = cs[cs.length - 1];
-      for (var i = 0; i < n; i++) {
-        var c = nuevoCircuito();
-        if (ult) { c.fuente = ult.fuente; c.cable = ult.cable; }
-        cs.push(c);
-      }
+      var cs = S.proy.caida.circuitos, ult = cs[cs.length - 1];
+      var c = nuevoCircuito(ult ? ult.fuente : undefined, ult ? ult.tipo : 'NAC');
+      cs.push(c);
       proyectoCambiado(); renderVista();
     },
     'circ-dup': function (b) {
       var cs = S.proy.caida.circuitos, i = cs.findIndex(function (x) { return x.id === b.dataset.id; });
-      var c = clonar(cs[i]); c.id = uid('c');
+      var c = clonar(cs[i]); c.id = uid('c'); c.circuito = c.circuito + ' (copia)';
       cs.splice(i + 1, 0, c);
       proyectoCambiado(); renderVista();
     },
     'circ-del': function (b) {
-      S.proy.caida.circuitos = S.proy.caida.circuitos.filter(function (x) { return x.id !== b.dataset.id; });
+      var id = b.dataset.id;
+      S.proy.caida.circuitos = S.proy.caida.circuitos.filter(function (x) { return x.id !== id; });
+      S.proy.paneles.concat(S.proy.fuentes).forEach(function (e) { e.filas.forEach(function (f) { if (f.circ === id) f.circ = ''; }); });
       proyectoCambiado(); renderVista();
     },
 

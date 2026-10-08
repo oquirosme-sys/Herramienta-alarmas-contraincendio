@@ -8,11 +8,13 @@ baterías secundarias, fuentes auxiliares y caída de tensión según **NFPA 72:
 1. **Proyecto** — datos generales, parámetros NFPA 72 (24 h espera, 5/15 min alarma, FS 20 %, 85 % fin de vida, 16 V mín., 2.4 A NAC) y **niveles del edificio**.
    Un proyecto nuevo arranca con **un solo nivel** (y su panel principal FACP). Los demás se agregan uno a uno con el botón **«+ Nivel»**
    (en la barra de pestañas o en la tarjeta Niveles): cada nivel nuevo crea su pestaña con un transponder (TRP). También hay «Agregar varios niveles…».
-2. **Pestaña de cada panel / transponder** — tabla de dispositivos: Fabricante → Modelo → Nivel/zona y cantidad.
-   Las corrientes salen del catálogo; si se digita un valor unitario, reemplaza al del catálogo (celda amarilla).
+2. **Pestaña de cada panel / transponder** — primero el cuadro **«Lazos y salidas»**: se definen los SLC, NAC, IDNAC, 24 VDC, voceo e IDC que salen del equipo
+   (con nombre, nivel, cable y longitud; el cable por defecto sale de la simbología: 5220UL, voceo 5220FL). Después la tabla de dispositivos:
+   Fabricante → Modelo → **Nivel** → **Lazo / salida** → Cantidad (desde la fila también se puede crear un lazo nuevo; el tipo se sugiere según el dispositivo).
+   Las corrientes unitarias salen del catálogo; si se digita un valor, reemplaza el de catálogo (amarillo). Un detector SLC en un NAC (o al revés) se avisa.
    Cada equipo calcula su propia batería y selecciona la capacidad estándar inmediata superior.
 3. **Pestaña de cada fuente auxiliar** — igual, más consumo propio y verificación del 80 % de I máx.
-4. **Caída de tensión** — una tabla para todo el proyecto, método de carga concentrada.
+4. **Caída de tensión** — una tabla con todos los lazos del proyecto; la corriente de cada lazo sale de los dispositivos asignados (+ «otros» en mA), método de carga concentrada.
 5. **Memoria de cálculo** — criterios, metodología, resumen por panel, fuentes, caída de tensión, resumen de dispositivos por equipo,
    observaciones automáticas y anexo con el detalle de cargas. «Imprimir / PDF» la emite en carta.
 6. **Administración** (botón 🔒, requiere PIN) — catálogos de fabricantes/marcas, dispositivos, cables y baterías
