@@ -50,6 +50,16 @@
           (c[t] = c[t] || []).forEach(function (x) { ids[x.id] = 1; });
           (base[t] || []).forEach(function (x) { if (!ids[x.id]) c[t].push(clonar(x)); });
         });
+        // Dispositivos guardados con la corriente en blanco: se completan con la corriente de ficha del base (no se pisa lo que ya tenga valor)
+        (c.dispositivos || []).forEach(function (d) {
+          (base.dispositivos || []).forEach(function (x) {
+            if (x.id !== d.id) return;
+            var llena = false;
+            if ((d.iEspera === null || d.iEspera === undefined) && x.iEspera !== null) { d.iEspera = x.iEspera; llena = true; }
+            if ((d.iAlarma === null || d.iAlarma === undefined) && x.iAlarma !== null) { d.iAlarma = x.iAlarma; llena = true; }
+            if (llena) d.obs = x.obs;
+          });
+        });
         c.baseVersion = base.version;
         escribir(K.catalogo, c);
       }

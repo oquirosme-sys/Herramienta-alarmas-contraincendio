@@ -41,8 +41,10 @@ La herramienta lo marca como **REVISAR — excede catálogo**.
 El catálogo se validó contra la lámina de simbología de Circuito S.A. (versiones Simplex y Notifier): se agregaron los dispositivos que faltaban
 (detectores de haz de luz, convencionales, bases audibles, protección de sobretensiones SS, fuentes remotas, anunciador, teléfono de bomberos, etc.)
 y el cable 6x14 STP del anunciador. Cada tipo muestra la sigla del símbolo (AIM, AOM, WF, VS, IM, SS, RPS, AMP, FAA…).
-Los dispositivos agregados sin corriente conocida quedan con la corriente en blanco: la fila se marca **REVISAR** hasta que se digite la corriente
-(en la fila, o en Administración → Dispositivos).
+Las corrientes de los dispositivos agregados se tomaron de **fichas de fabricante** (la ficha y las condiciones quedan anotadas en la columna de observación de cada dispositivo;
+donde la ficha da un máximo se usa el máximo, y las equivalencias de código no confirmadas llevan la marca «CONFIRMAR»).
+Seis dispositivos siguen sin corriente publicada (2098-9806, 4099-9006 y -9006SP, 4009-9401, DAA2 + BDA y DVC + DVC-KD): la fila se marca **REVISAR**
+hasta que se digite la corriente (en la fila, o en Administración → Dispositivos).
 
 ## Versión en Excel (copia local)
 
