@@ -1,3 +1,7 @@
 .claude/
 *.txt.bak
 excel/*.xlsx
+
+# paquetes de parche generados
+/parche-*/
+/parche-*.zip
