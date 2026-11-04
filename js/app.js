@@ -252,13 +252,17 @@
   function optsLazosNivel(eq, sel, nivel, d) {
     var t = d ? Calc.tipoLazoDe(d) : null, vistos = {};
     function ord(l) { return l.slice().sort(function (a, b) { return t ? ((b.tipo === t) - (a.tipo === t)) : 0; }); }
-    function op(c, conEq) {
+    function op(c) {
       vistos[c.id] = 1;
-      return '<option value="' + esc(c.id) + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.circuito) + (conEq ? ' · ' + esc(nombreEquipo(c.fuente)) : (c.nivel ? ' · ' + esc(c.nivel) : '')) + '</option>';
+      return '<option value="' + esc(c.id) + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.circuito) + (c.nivel ? ' · ' + esc(c.nivel) : '') + '</option>';
     }
-    var propios = lazosDe(eq.id), otros = S.proy.caida.circuitos.filter(function (c) { return c.fuente !== eq.id && c.nivel === nivel; });
-    var h = '<option value="">— sin lazo —</option>' + ord(propios).map(function (c) { return op(c, false); }).join('');
-    if (otros.length) h += '<optgroup label="Lazos de otros equipos en este nivel">' + ord(otros).map(function (c) { return op(c, true); }).join('') + '</optgroup>';
+    var h = '<option value="">— sin lazo —</option>' + ord(lazosDe(eq.id)).map(op).join('');
+    // lazos de los demás equipos (de cualquier nivel: un lazo del panel principal puede llegar a todos los niveles); el panel principal primero
+    S.proy.paneles.concat(S.proy.fuentes).forEach(function (o) {
+      if (o.id === eq.id) return;
+      var ls = lazosDe(o.id);
+      if (ls.length) h += '<optgroup label="Lazos de ' + esc(o.tag + (o.nivel ? ' · ' + o.nivel : '')) + '">' + ord(ls).map(op).join('') + '</optgroup>';
+    });
     var actual = sel && porId(S.proy.caida.circuitos, sel);
     if (actual && !vistos[actual.id]) h += '<option value="' + esc(actual.id) + '" selected>' + esc(actual.circuito + ' · ' + nombreEquipo(actual.fuente)) + '</option>';
     else if (sel && !actual) h += '<option value="' + esc(sel) + '" selected>(lazo eliminado)</option>';
