@@ -632,7 +632,7 @@
     }
     function spans(orden) {
       var y0 = y0s(orden), sp = {};
-      orden.forEach(function (k) { sp[k] = { y0: y0[k], min: y0[k] - 2.4, max: y0[k] }; });
+      orden.forEach(function (k) { sp[k] = { y0: y0[k], min: y0[k], max: y0[k] }; });
       rowsList.forEach(function (r) { var s = sp[r.key]; if (s) { s.min = Math.min(s.min, r.y); s.max = Math.max(s.max, r.y); } });
       return sp;
     }
@@ -760,8 +760,8 @@
     // montantes verticales (y su retorno cuando hay lazos clase A)
     llaves.forEach(function (k) {
       var capa = CAPA_DE_TIPO[k.split('|')[1]], s = info[k];
-      d.L(xR[k], s.min, xR[k], s.max, capa);
       var yj = rowsList.filter(function (q) { return q.key === k && !q.ret; }).map(function (q) { return q.y; }).concat([s.y0]).sort(function (a, b) { return a - b; });
+      d.L(xR[k], yj[0], xR[k], yj[yj.length - 1], capa);   // el montante llega solo hasta la primera y la última conexión (sin colas)
       for (var q = 0; q + 1 < yj.length; q++) {
         if (yj[q + 1] - yj[q] < 18) continue;
         var ym = (yj[q] + yj[q + 1]) / 2;
