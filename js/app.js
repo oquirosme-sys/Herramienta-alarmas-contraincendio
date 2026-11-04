@@ -143,7 +143,7 @@
   }
 
   function tipoPorNombre(nombre) {
-    var m = String(nombre || '').toUpperCase().replace(/\s+/g, '').match(/^(NAC\+VOCEO|IDNAC|SLC|NAC|VOCEO|IDC|24V)/);
+    var m = String(nombre || '').toUpperCase().replace(/\s+/g, '').match(/^(NAC\+VOCEO|IDNAC|SLC|NAC|VOCEO|IDC|TEL|24V)/);
     return m ? (m[1] === '24V' ? '24VDC' : m[1]) : 'NAC';
   }
 
@@ -208,7 +208,7 @@
     tipo = tipo || 'NAC';
     var eq = equipoId || (S.proy.paneles[0] || {}).id || '';
     var n = S.proy.caida.circuitos.filter(function (c) { return c.fuente === eq && c.tipo === tipo; }).length + 1;
-    return { id: uid('c'), fuente: eq, tipo: tipo, clase: 'B', circuito: (tipo === '24VDC' ? '24 VDC' : tipo) + ' ' + n, nivel: '', desc: '', otros: null, cable: buscarCable(tipo === 'VOCEO' ? '5220FL' : '5220UL'), long: null };
+    return { id: uid('c'), fuente: eq, tipo: tipo, clase: 'B', circuito: (tipo === '24VDC' ? '24 VDC' : tipo) + ' ' + n, nivel: '', desc: '', otros: null, cable: buscarCable(tipo === 'VOCEO' || tipo === 'TEL' ? '5220FL' : '5220UL'), long: null };
   }
   /* «Alimentado por»: fuente auxiliar o amplificador que carga con la corriente de los dispositivos del lazo */
   var TIPOS_ALIM = /^(VOCEO|NAC\+VOCEO|NAC|IDNAC|24VDC)$/;
@@ -237,7 +237,7 @@
     if (!TIPOS_ALIM.test(c.tipo)) return '<td class="muted" style="text-align:center">—</td>';
     return '<td><select class="in w-md" data-o="circ" data-id="' + esc(c.id) + '" data-k="alim" title="Fuente auxiliar o amplificador que carga con los dispositivos de este lazo">' + optsAlim(c, c.alim) + '</select></td>';
   }
-  function etiquetaTipo(t) { return t === '24VDC' ? '24 VDC' : (t === 'VOCEO' ? 'Voceo' : (t === 'NAC+VOCEO' ? 'NAC + Voceo' : t)); }
+  function etiquetaTipo(t) { return t === '24VDC' ? '24 VDC' : (t === 'VOCEO' ? 'Voceo' : (t === 'NAC+VOCEO' ? 'NAC + Voceo' : (t === 'TEL' ? 'Teléfono' : t))); }
   function optsTiposLazo(sel) { return opts(Calc.TIPOS_LAZO.map(function (t) { return { v: t, l: etiquetaTipo(t) }; }), sel); }
   function lazosDe(eqId) { return S.proy.caida.circuitos.filter(function (c) { return c.fuente === eqId; }); }
   function optsLazos(eq, sel, tipo) {

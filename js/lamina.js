@@ -10,7 +10,7 @@
     'FA-SLC': [3, '#1b9e3a'], 'FA-NAC': [30, '#a0522d'], 'FA-IDNAC': [30, '#a0522d'], 'FA-VOCEO': [30, '#a0522d'], 'FA-NAC-VOCEO': [30, '#a0522d'],
     'FA-24VDC': [7, '#111'], 'FA-IDC': [3, '#1b9e3a'], 'FA-RED': [150, '#6c8cff'], 'FA-TELEFONO': [5, '#1f3bd1'], 'FA-ENCABEZADO': [5, '#1f4e79'], 'FA-ALERTA': [1, '#c00000'], 'FA-TEXTO-BLANCO': [7, '#fff'], 'FA-CAJETIN': [7, '#111']
   };
-  var CAPA_DE_TIPO = { SLC: 'FA-SLC', NAC: 'FA-NAC', IDNAC: 'FA-IDNAC', VOCEO: 'FA-VOCEO', 'NAC+VOCEO': 'FA-NAC-VOCEO', '24VDC': 'FA-24VDC', IDC: 'FA-IDC' };
+  var CAPA_DE_TIPO = { SLC: 'FA-SLC', NAC: 'FA-NAC', IDNAC: 'FA-IDNAC', VOCEO: 'FA-VOCEO', 'NAC+VOCEO': 'FA-NAC-VOCEO', '24VDC': 'FA-24VDC', IDC: 'FA-IDC', TEL: 'FA-TELEFONO' };
 
   /* ---------- símbolos NFPA 170 ---------- */
   var SIM = {};
@@ -437,7 +437,7 @@
         { id: 'nc1', on: true, capa: 'FA-SLC', txt: 'LAZO DE INICIACIÓN. 2x16 AWG SÓLIDO, SIN PANTALLA, ESPECIFICACIÓN NEC/UL=FPLR, FORRO COLOR ROJO, 300V, IGUAL O SUPERIOR A REFERENCIA, EN TUBERÍA EMT LISTADA UL, O EL INDICADO EN DIAGRAMA UNIFILAR. CABLE CONTRA HUMEDAD EN EXTERIORES VER REFERENCIA. IGUAL O SUPERIOR A REFERENCIA:\nSLC= {SLC}\nIDC= {IDC}\nEXTERIORES= WEST PENN AQ225' },
         { id: 'nc2', on: true, capa: 'FA-NAC', txt: 'LAZO DE NOTIFICACIÓN Y VOCEO. CIRCUITO DE NOTIFICACIÓN, 2x16 AWG SÓLIDO (SOLO NAC), 2x2x16 AWG SÓLIDO (NAC+VOCEO), NAC=SIN PANTALLA, VOCEO=CON PANTALLA, ESPECIFICACIÓN NEC/UL=FPLR, FORRO COLOR ROJO, 300V, EN TUBERÍA EMT LISTADA UL O EL INDICADO EN DIAGRAMA UNIFILAR. CABLE CONTRA HUMEDAD EN EXTERIORES VER REFERENCIA. IGUAL O SUPERIOR A REFERENCIA:\nNAC= {NAC}\nVOCEO= {VOCEO}\nEXTERIORES= WEST PENN AQ225' },
         { id: 'nc3', on: true, capa: 'FA-24VDC', txt: 'CIRCUITO DE 24VDC PERMANENTES, 2x16 AWG SÓLIDO, SIN PANTALLA, ESPECIFICACIÓN NEC/UL=FPLR, FORRO COLOR ROJO, 300V, IGUAL O SUPERIOR A REFERENCIA, EN TUBERÍA EMT LISTADA UL (VER TABLA CANALIZACIONES). O EL INDICADO EN DIAGRAMA UNIFILAR. CABLE CONTRA HUMEDAD EN EXTERIORES VER REFERENCIA. IGUAL O SUPERIOR A REFERENCIA:\n24VDC= {24VDC}\nEXTERIORES= WEST PENN AQ225' },
-        { id: 'nc4', on: false, capa: 'FA-TELEFONO', txt: 'LAZO DE TELÉFONOS' },
+        { id: 'nc4', on: false, capa: 'FA-TELEFONO', txt: 'LAZO DE TELÉFONOS (JACK Y TELÉFONOS DE BOMBEROS)\nTEL= {TEL}' },
         { id: 'nc5', on: true, capa: 'FA-RED', txt: 'CIRCUITO DE RED O COMUNICACIÓN, 4x16 AWG SÓLIDO, CON PANTALLA, ESPECIFICACIÓN NEC/UL=FPLR, FORRO COLOR ROJO, IGUAL O SUPERIOR A REFERENCIA, EN TUBERÍA EMT LISTADA UL (VER TABLA CANALIZACIONES), UN PAR PARA DATOS, UN PAR PARA AUDIO. O EL INDICADO EN DIAGRAMA UNIFILAR. CABLE CONTRA HUMEDAD EN EXTERIORES VER REFERENCIA. IGUAL O SUPERIOR A REFERENCIA:\nRED COBRE= {SLC}\nRED FO= VER PLANOS DE ITS\nEXTERIORES= WEST PENN AQ225' }
       ],
       gen: [
@@ -456,7 +456,7 @@
     var P = ctx.proy, cx = ctx.cx, Calc = ctx.Calc, cd = Calc.caida(cx, P), RP = Calc.proyecto(cx, P);
     var niveles = P.niveles.length ? P.niveles : ['NIVEL 1'];
     var equipos = P.paneles.concat(P.fuentes);
-    var ORD = ['SLC', 'IDC', 'NAC', 'NAC+VOCEO', 'IDNAC', 'VOCEO', '24VDC'];
+    var ORD = ['SLC', 'IDC', 'NAC', 'NAC+VOCEO', 'IDNAC', 'VOCEO', '24VDC', 'TEL'];
     var NO = (P.notasDU && P.notasDU.facp && P.notasDU.gen) ? P.notasDU : notasDUBase();
     if (!NO.cab) NO = Object.assign({}, NO, { cab: notasDUBase().cab });
     var notasF = NO.facp.filter(function (x) { return x.on; });
@@ -467,9 +467,9 @@
     var facpRef = dFacp ? ((cx.fabricantes[dFacp.fabricante] || {}).nombre || '') + ' ' + dFacp.modelo : ((cx.fabricantes && cx.fabricantes[P.fabricante]) ? cx.fabricantes[P.fabricante].nombre : '');
     function cabDe(tipo) {
       var c = P.caida.circuitos.filter(function (z) { return z.tipo === tipo && z.cable && cx.cables[z.cable]; })[0], cab = c ? cx.cables[c.cable] : null;
-      return cab ? (cab.fabricante + ' ' + cab.modelo).toUpperCase() : (tipo === 'VOCEO' ? 'BELDEN 5220FL' : 'BELDEN 5220UL');
+      return cab ? (cab.fabricante + ' ' + cab.modelo).toUpperCase() : (tipo === 'VOCEO' || tipo === 'TEL' ? 'BELDEN 5220FL' : 'BELDEN 5220UL');
     }
-    function sust(t) { return String(t || '').replace(/\{(SLC|IDC|NAC|VOCEO|NAC\+VOCEO|24VDC)\}/g, function (m, t1) { return cabDe(t1); }).replace(/\{tEspera\}/g, tE).replace(/\{tAlarma\}/g, tA).replace(/\{facpRef\}/g, facpRef.trim()); }
+    function sust(t) { return String(t || '').replace(/\{(SLC|IDC|NAC|VOCEO|NAC\+VOCEO|24VDC|TEL)\}/g, function (m, t1) { return cabDe(t1); }).replace(/\{tEspera\}/g, tE).replace(/\{tAlarma\}/g, tA).replace(/\{facpRef\}/g, facpRef.trim()); }
     var ROW = 27, PAD = 16, ESC = 1.35, PASO = 24;
     var circs = {}, res = {};
     P.caida.circuitos.forEach(function (c, i) { circs[c.id] = c; res[c.id] = cd.circuitos[i]; });
@@ -736,7 +736,7 @@
     llaves.forEach(function (k) {
       var capa = CAPA_DE_TIPO[k.split('|')[1]], s = info[k];
       d.L(xR[k], s.min, xR[k], s.max, capa);
-      d.T(xR[k], s.max + 4.5 + (llaves.indexOf(k) % 2) * 5, (k.split('|')[1] === '24VDC' ? '24 VDC' : k.split('|')[1]), 2.4, capa, 'c', 0, 'rs:' + k);
+      d.T(xR[k], s.max + 4.5 + (llaves.indexOf(k) % 2) * 5, (k.split('|')[1] === '24VDC' ? '24 VDC' : (k.split('|')[1] === 'TEL' ? 'TELÉFONO' : k.split('|')[1])), 2.4, capa, 'c', 0, 'rs:' + k);
       if (claseA[k]) {
         var xr = xR[k] + 3.6, ysR = claseA[k].concat([s.y0 - 2.4]);
         d.L(xr, Math.min.apply(null, ysR), xr, Math.max.apply(null, ysR), capa);
@@ -781,7 +781,8 @@
     if (!itemsL.length) { d.R(lx, yy - 14, lw, 14, 'FA-TABLA'); d.T(lx + 4, yy - 8, 'Asigne dispositivos a los niveles en las pestañas de cada panel.', 2.6, 'FA-TEXTO'); yy -= 14; }
 
     yy = tit(yy - 10, 'CABLEADO SISTEMA ALARMAS CONTRA INCENDIO');
-    NO.cab.filter(function (q) { return q.on; }).forEach(function (q) {
+    var hayTel = P.caida.circuitos.some(function (z) { return z.tipo === 'TEL'; });
+    NO.cab.filter(function (q) { return q.on || (q.capa === 'FA-TELEFONO' && hayTel); }).forEach(function (q) {
       var lin = [];
       sust(q.txt).split('\n').forEach(function (par) { partir(par, 2.3, lw - 38).forEach(function (l) { lin.push(l); }); });
       var al = lin.length * 3.4 + 5;

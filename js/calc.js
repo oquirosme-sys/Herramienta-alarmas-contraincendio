@@ -9,7 +9,7 @@
 
 
   /* Tipos de lazo / salida de un panel (SLC, NAC, IDNAC, 24 VDC, voceo, IDC) */
-  var TIPOS_LAZO = ['SLC', 'NAC', 'IDNAC', '24VDC', 'VOCEO', 'NAC+VOCEO', 'IDC'];
+  var TIPOS_LAZO = ['SLC', 'NAC', 'IDNAC', '24VDC', 'VOCEO', 'NAC+VOCEO', 'IDC', 'TEL'];
   // tipo de lazo que le corresponde a un dispositivo según la columna «circuito» del catálogo
   var LAZO_DE_CIRCUITO = { 'SLC': 'SLC', 'NAC': 'NAC', 'IDNAC': 'IDNAC', 'FUENTE AUX': '24VDC', 'VOCEO': 'VOCEO', 'NAC+VOCEO': 'NAC+VOCEO', 'IDC': 'IDC', 'ZONA': 'IDC' };
   // tipos de lazo en los que puede ir cada tipo de dispositivo (si no figura, no se valida)
@@ -19,6 +19,7 @@
    * Para ellos el lazo principal es siempre SLC y la corriente del catálogo se carga al lazo de 24 VDC. */
   function tipoLazoDe(d) {
     if (!d) return 'NAC';
+    if (/^J(-PH)?$/.test(d.tag || '')) return 'TEL';           // jack y teléfono de bomberos: lazo de teléfonos
     if (d.circuito2 === '24VDC') return 'SLC';                 // con alimentación a 24 V se direcciona por SLC
     if (d.circuito === 'NAC+VOCEO') return 'NAC';              // parlante + estrobo: el estrobo va al NAC y el parlante al voceo
     return LAZO_DE_CIRCUITO[d.circuito] || 'NAC';
@@ -163,6 +164,7 @@
         else if (r.d && tipoLazo2De(r.d)) {
           if (!(c.tipo === tipoLazoDe(r.d) || (parNacVoceo(r.d) && c.tipo === 'NAC+VOCEO'))) { r.aviso = 'Va conectado a un lazo de ' + tipoLazoDe(r.d) + ' (y a uno de ' + tipoLazo2De(r.d) + '); este lazo es ' + c.tipo; r.nivel = 'warn'; }
         }
+        else if (r.d && tipoLazoDe(r.d) === 'TEL' && c.tipo !== 'TEL') { r.aviso = 'Es jack / teléfono de bomberos y el lazo es ' + c.tipo + ' (use un lazo de teléfonos)'; r.nivel = 'warn'; }
         else if (r.d && !tipoLazo2De(r.d) && LAZOS_PERMITIDOS[r.d.circuito] && LAZOS_PERMITIDOS[r.d.circuito].indexOf(c.tipo) < 0) {
           r.aviso = 'Es de tipo ' + r.d.circuito + ' y el lazo es ' + c.tipo; r.nivel = 'warn';
         }
