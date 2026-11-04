@@ -393,6 +393,7 @@
     var cd = Calc.caida(S.cx, P);
     tab('caida', 'Caída de tensión', '', P.caida.circuitos.length ? (cd.errores ? 'error' : 'ok') : 'pend');
     tab('memoria', 'Memoria de cálculo');
+    tab('laminas', 'Láminas DXF');
     if (Auth.esAdmin()) tab('admin', '⚙ Administración', '', '', ' admin');
     tabsEl.innerHTML = h.join('');
   }
@@ -418,6 +419,7 @@
     else if (t.indexOf('p:') === 0 || t.indexOf('f:') === 0) vistaEquipo(t);
     else if (t === 'caida') vistaCaida();
     else if (t === 'memoria') vistaMemoria();
+    else if (t === 'laminas') vistaLaminas();
     else if (t === 'admin') vistaAdmin();
     if (S.pintor) S.pintor();
     window.scrollTo(0, y);
@@ -1084,6 +1086,91 @@
     { id: 'fabricantes', l: 'Fabricantes / marcas' }
   ].concat(REMOTO ? [{ id: 'usuarios', l: 'Usuarios' }, { id: 'respaldo', l: 'Respaldo' }] : [{ id: 'respaldo', l: 'Respaldo y PIN' }]);
 
+
+  /* ======================= vista: Láminas DXF (DU · matriz · cálculos) ======================= */
+  var LAMINAS = [
+    { id: 'du', t: 'Diagrama unifilar (DU)', f: 'DU alarmas' },
+    { id: 'matriz', t: 'Matriz de entradas / salidas', f: 'Matriz alarmas' },
+    { id: 'calc', t: 'Cálculos (baterías, fuentes, caídas)', f: 'Calculos alarmas' }
+  ];
+  function ctxLamina() { return { proy: S.proy, cx: S.cx, Calc: Calc }; }
+  function matrizProy() { return S.proy.matriz || (S.proy.matriz = Lamina.matrizBase()); }
+  function nombreDXF(id) {
+    var l = LAMINAS.filter(function (x) { return x.id === id; })[0];
+    return ((S.proy.numero ? S.proy.numero + ' ' : '') + l.f + ' ' + (S.proy.nombre || '')).trim().replace(/[\\/:*?"<>|]+/g, '_') + '.dxf';
+  }
+  function descargarDXF(id) {
+    var txt = Lamina.aDXF(Lamina.lamina(id, ctxLamina()));
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([txt], { type: 'application/dxf' }));
+    a.download = nombreDXF(id);
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  function pintarLamina() {
+    var el = document.getElementById('laminaVista');
+    if (el) el.innerHTML = Lamina.aSVG(Lamina.lamina(S.lam, ctxLamina()));
+  }
+  function editorMatriz() {
+    var M = matrizProy();
+    var h = '<div class="card"><h2>Matriz de entradas / salidas</h2>' +
+      '<p class="muted">Marque con las casillas qué señal de entrada (columnas) activa cada función de salida (filas). Fuente: ' + esc(M.fuente || 'importada') + '.</p>' +
+      '<div class="acciones" style="margin-bottom:.6rem">' +
+      '<button class="btn" data-act="mat-importar">⬆ Importar estándar (PDF, Excel, Word)</button>' +
+      '<button class="btn" data-act="mat-fila">＋ Función de salida</button>' +
+      '<button class="btn" data-act="mat-col">＋ Señal de entrada</button>' +
+      '<button class="btn" data-act="mat-base">Restablecer matriz base</button></div>' +
+      '<div style="overflow:auto;max-height:70vh"><table class="tabla matriz"><thead><tr><th style="min-width:20rem">Acción / salida</th><th>Nota</th>';
+    M.entradas.forEach(function (e) {
+      h += '<th class="mcol"><input data-lm="en" data-id="' + esc(e.id) + '" value="' + esc(e.nombre) + '" title="' + esc(e.nombre) + '" style="width:7rem">' +
+        '<button class="btn btn-sm" data-act="mat-col-del" data-id="' + esc(e.id) + '" title="Quitar columna">✕</button></th>';
+    });
+    h += '<th></th></tr></thead><tbody>';
+    M.salidas.forEach(function (s) {
+      h += '<tr><td><textarea rows="2" data-lm="st" data-id="' + esc(s.id) + '" style="width:100%">' + esc(s.texto) + '</textarea></td>' +
+        '<td><input data-lm="sn" data-id="' + esc(s.id) + '" value="' + esc(s.nota || '') + '" style="width:3.5rem"></td>';
+      M.entradas.forEach(function (e) {
+        var m = (s.marcas || {})[e.id];
+        h += '<td style="text-align:center"><input type="checkbox" data-lm="mk" data-s="' + esc(s.id) + '" data-id="' + esc(e.id) + '"' + (m ? ' checked' : '') + '>' +
+          (m && m !== 'X' ? '<br><small>' + esc(m) + '</small>' : '') + '</td>';
+      });
+      h += '<td><button class="btn btn-sm" data-act="mat-fila-del" data-id="' + esc(s.id) + '" title="Quitar fila">✕</button></td></tr>';
+    });
+    h += '</tbody></table></div>' +
+      '<label class="campo" style="margin-top:.8rem"><span>Notas generales (una por línea)</span><textarea rows="4" data-lm="gen">' + esc((M.generales || []).join('\n')) + '</textarea></label>' +
+      '<label class="campo"><span>Notas / anotaciones numeradas (una por línea)</span><textarea rows="8" data-lm="notas">' + esc((M.notas || []).join('\n')) + '</textarea></label></div>';
+    return h;
+  }
+  function vistaLaminas() {
+    if (!S.lam) S.lam = 'du';
+    var h = '<div class="card"><h2>Láminas para exportar a DWG</h2>' +
+      '<p class="muted">Cada lámina se genera con los datos del proyecto (niveles, paneles, dispositivos, lazos, baterías y caídas de tensión) y se descarga como <b>DXF</b> con capas <code>FA-*</code> ' +
+      '(ábralo en AutoCAD y guárdelo como DWG, o péguelo con <code>COPYCLIP</code> en su lámina). Símbolos: NFPA 170 (2018) cap. 8.</p>' +
+      '<div class="acciones">' + LAMINAS.map(function (l) {
+        return '<button class="btn' + (S.lam === l.id ? ' primario' : '') + '" data-act="lam-sel" data-id="' + l.id + '">' + esc(l.t) + '</button>';
+      }).join('') +
+      '<span style="flex:1"></span><button class="btn primario" data-act="lam-dxf">⬇ Descargar DXF de esta lámina</button>' +
+      '<button class="btn" data-act="lam-dxf-todas">⬇ Las 3 láminas</button></div></div>';
+    if (S.lam === 'matriz') h += editorMatriz();
+    h += '<div class="card"><h2>Vista previa</h2><div id="laminaVista" style="overflow:auto;background:#fff;border:1px solid var(--line,#ccc);border-radius:6px;padding:.5rem"></div></div>';
+    vista.innerHTML = h;
+    S.pintor = pintarLamina;
+  }
+  vista.addEventListener('change', function (e) {
+    var el = e.target, t = el.dataset && el.dataset.lm;
+    if (!t) return;
+    var M = matrizProy();
+    function sal(id) { return M.salidas.filter(function (x) { return x.id === id; })[0]; }
+    if (t === 'en') { var en = M.entradas.filter(function (x) { return x.id === el.dataset.id; })[0]; if (en) en.nombre = el.value; }
+    else if (t === 'st') { var s1 = sal(el.dataset.id); if (s1) s1.texto = el.value; }
+    else if (t === 'sn') { var s2 = sal(el.dataset.id); if (s2) s2.nota = el.value; }
+    else if (t === 'mk') { var s3 = sal(el.dataset.s); if (s3) { s3.marcas = s3.marcas || {}; if (el.checked) s3.marcas[el.dataset.id] = 'X'; else delete s3.marcas[el.dataset.id]; } }
+    else if (t === 'gen') M.generales = el.value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+    else if (t === 'notas') M.notas = el.value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+    if (!/editada/.test(M.fuente || '')) M.fuente = (M.fuente || 'Matriz') + ' · editada';
+    proyectoCambiado(); pintarLamina();
+  });
+
   function vistaAdmin() {
     var h = [];
     h.push('<div class="encabezado"><div><h2>Administración de catálogos</h2><div class="sub">Equivale a las hojas ocultas BD_DISPOSITIVOS, BD_CABLES y BD_BATERIAS del Excel. Los cambios aplican a todos los proyectos.</div></div></div>');
@@ -1452,6 +1539,39 @@
       S.proy.caida.circuitos = S.proy.caida.circuitos.filter(function (x) { return x.id !== id; });
       S.proy.paneles.concat(S.proy.fuentes).forEach(function (e) { e.filas.forEach(function (f) { if (f.circ === id) f.circ = ''; }); });
       proyectoCambiado(); renderVista();
+    },
+
+
+    /* ----- láminas ----- */
+    'lam-sel': function (b) { S.lam = b.dataset.id; renderVista(); },
+    'lam-dxf': function () { descargarDXF(S.lam || 'du'); toast('DXF generado'); },
+    'lam-dxf-todas': function () { LAMINAS.forEach(function (l, i) { setTimeout(function () { descargarDXF(l.id); }, i * 400); }); toast('Se descargan 3 archivos DXF'); },
+    'mat-base': function () {
+      confirmar('Restablecer matriz', 'Se reemplaza la matriz del proyecto por la matriz base. ¿Continuar?', 'Restablecer').then(function (ok) {
+        if (!ok) return; S.proy.matriz = Lamina.matrizBase(); proyectoCambiado(); renderVista();
+      });
+    },
+    'mat-fila': function () { var M = matrizProy(); M.salidas.push({ id: uid('s'), texto: 'Nueva función de salida', nota: '', marcas: {} }); proyectoCambiado(); renderVista(); },
+    'mat-col': function () { var M = matrizProy(); M.entradas.push({ id: uid('e'), nombre: 'Nueva señal de entrada' }); proyectoCambiado(); renderVista(); },
+    'mat-fila-del': function (b) { var M = matrizProy(); M.salidas = M.salidas.filter(function (x) { return x.id !== b.dataset.id; }); proyectoCambiado(); renderVista(); },
+    'mat-col-del': function (b) {
+      var M = matrizProy(); M.entradas = M.entradas.filter(function (x) { return x.id !== b.dataset.id; });
+      M.salidas.forEach(function (s) { delete (s.marcas || {})[b.dataset.id]; }); proyectoCambiado(); renderVista();
+    },
+    'mat-importar': function () {
+      var inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = '.pdf,.xlsx,.xls,.xlsm,.csv,.docx';
+      inp.onchange = function () {
+        var f = inp.files[0]; if (!f) return;
+        toast('Leyendo ' + f.name + '…');
+        Lamina.importarArchivo(f).then(function (m) {
+          if (!m || !m.salidas.length) { toast('No se encontró una matriz (tabla con marcas X) en ' + f.name); return; }
+          m.fuente = 'Importada de ' + f.name;
+          S.proy.matriz = m; proyectoCambiado(); renderVista();
+          toast('Matriz importada: ' + m.salidas.length + ' salidas × ' + m.entradas.length + ' entradas, ' + m.notas.length + ' notas. Revise los textos.');
+        }).catch(function (err) { toast('⚠ ' + ((err && err.message) || err)); });
+      };
+      inp.click();
     },
 
     /* ----- administración ----- */

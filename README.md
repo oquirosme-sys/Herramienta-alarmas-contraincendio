@@ -115,3 +115,15 @@ Con la URL y la clave configuradas, `js/supabase.js` reemplaza `Store` y `Auth` 
 - Proyectos: leen y editan todos los miembros; elimina el creador o un admin.
 - Un admin no puede quitarse a sí mismo el rol ni desactivarse.
 - **Trabajo simultáneo:** cada guardado incrementa `version`; si otra persona guardó el mismo proyecto mientras se editaba, la app ofrece guardar los cambios propios como copia o cargar la versión nueva (no se pisan datos en silencio).
+
+## Láminas DXF (DU · matriz · cálculos)
+
+Pestaña **Láminas DXF**: genera tres láminas con los datos del proyecto y las descarga como **DXF** (capas `FA-*`, unidades mm) para abrirlas en AutoCAD, guardarlas como DWG o pegarlas en la lámina del proyecto (`COPYCLIP` / `PEGARCLIP`).
+
+- **Diagrama unifilar (DU)**: estructura de la lámina ED-6200 — FACP con módulos SLC/NAC, montantes por tipo de circuito (SLC verde, NAC café, voceo azul, 24 VDC rojo), una fila por nivel con la cadena de dispositivos (símbolo, cantidad y número de llamada), tablas de simbología, cableado y notas.
+- **Matriz de entradas / salidas**: estructura de la lámina ED-6201. Casillas por señal de entrada × función de salida, notas generales y numeradas. Se puede **importar el estándar del proyecto o de la marca** (PDF, Excel, Word o CSV; ver abajo) y se editan filas, columnas y notas.
+- **Cálculos**: tablas de caída de tensión por fuente/panel y tarjeta de batería (NFPA 72 §10.6.7) de cada panel y fuente auxiliar, con los mismos resultados de la memoria.
+
+**Símbolos**: NFPA 170 (2018) cap. 8 — `js/simbolos-nfpa170.js` (184 símbolos) se genera con `python excel/extraer_simbolos_nfpa170.py <NFPA170_Cap8….dxf>` (requiere `pip install ezdxf`). La correspondencia TAG del catálogo → símbolo está en `SIM_TAG` de `js/lamina.js`.
+
+**Importación de la matriz**: busca la tabla con marcas «X» (o «X(4)»); la columna con más texto es la acción, una columna de números entre paréntesis es la nota, los encabezados son las señales de entrada, el texto encima son notas generales y las líneas «(n) …» debajo son las notas numeradas. Excel y Word se leen por celdas; el PDF se reconstruye por posición del texto (mejor esfuerzo: revise lo importado). Las librerías (SheetJS, mammoth, pdf.js) se cargan bajo demanda desde cdnjs, por lo que se requiere Internet al importar.
