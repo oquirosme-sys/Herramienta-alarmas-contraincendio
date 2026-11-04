@@ -135,7 +135,7 @@
   }
 
   /* Equipos que pueden alimentar lazos de otros equipos: fuentes auxiliares y amplificadores (lista «fuentes» del proyecto), por id */
-  function alimentadores(proy) { var m = {}; (proy.fuentes || []).forEach(function (f) { m[f.id] = f; }); return m; }
+  function alimentadores(proy) { var m = {}; (proy.paneles || []).concat(proy.fuentes || []).forEach(function (f) { m[f.id] = f; }); return m; }
   /* Lazo al que se carga la corriente de una fila: con doble conexión a 24 V, el lazo de 24 V; si no, el lazo principal */
   function lazoCorriente(d, f, circs) {
     if (d && tipoLazo2De(d) === '24VDC') return (f.circ2 && circs[f.circ2]) || null;
@@ -156,7 +156,7 @@
     var res = (filas || []).map(function (f) {
       var r = fila(cx, f);
       var ef = dueno && r.d ? duenoCarga(r.d, f, circs, dueno.amps) : null;
-      if (ef && ef.id !== dueno.id) { r.aCargoDe = ef; r.aviso = 'Se carga ' + (ef.tipo === 'AMP' ? 'al amplificador ' : 'a la fuente ') + (ef.tag || ''); r.nivel = 'info'; return r; }
+      if (ef && ef.id !== dueno.id) { r.aCargoDe = ef; r.aviso = 'Se carga ' + (ef.tipo === 'AMP' ? 'al amplificador ' : (/^(FACP|TRP)$/.test(ef.tipo) ? 'al panel ' : 'a la fuente ')) + (ef.tag || ''); r.nivel = 'info'; return r; }
       // el dispositivo debe ir en un lazo de su tipo (un detector SLC no va en un NAC)
       if (f.circ && !r.aviso) {
         var c = circs && circs[f.circ];
@@ -193,6 +193,9 @@
   /* Hoja BAT_FACP / BAT_TRP */
   function panel(cx, p, proy) {
     var s = sumarFilas(cx, p.filas, mapaCircuitos(proy), { id: p.id, amps: alimentadores(proy) });
+    // dispositivos de otros equipos (otros niveles) conectados a lazos de este panel: se cargan a su batería
+    var ext = cargaExterna(cx, proy, p);
+    s.cargado = ext; s.iEsp += ext.iEsp; s.iAlm += ext.iAlm;
     s.bat = bateria(cx, s.iEsp, s.iAlm, param(p, proy, 'tEspera'), param(p, proy, 'tAlarma'), param(p, proy, 'fs'));
     s.estado = s.errores ? 'REVISAR' : s.bat.estado;
     return s;

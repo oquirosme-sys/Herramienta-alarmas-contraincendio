@@ -855,6 +855,27 @@
         '</tbody></table></div></section>');
     }
 
+    // Dispositivos de OTROS equipos (otros niveles) conectados a lazos de este equipo: su carga se suma aquí
+    var ajenas = [];
+    P.paneles.concat(P.fuentes).forEach(function (o) {
+      if (o === eq) return;
+      (o.filas || []).forEach(function (fl) {
+        var cz = fl.circ && porId(P.caida.circuitos, fl.circ);
+        if (cz && cz.fuente === eq.id && (fl.disp || Calc.num(fl.cant) !== null)) ajenas.push({ o: o, f: fl, c: cz });
+      });
+    });
+    if (ajenas.length) {
+      h.push('<section class="card"><div class="card-h"><h3>Dispositivos de otros niveles conectados a lazos de ' + esc(eq.tag) + '</h3>' +
+        '<span class="nota">Se editan en la pestaña de su nivel o equipo; su corriente se suma a la batería de ' + esc(eq.tag) + ' y no a la de ese equipo.</span></div>' +
+        '<div class="card-b flush tabla-wrap"><table class="t"><thead><tr><th>Equipo / nivel</th><th>Modelo / descripción</th><th>Lazo</th><th class="num">Cant.</th><th class="num">I alarma (A)</th><th></th></tr></thead><tbody>' +
+        ajenas.map(function (x) {
+          var d = S.cx.disp[x.f.disp], r = Calc.fila(S.cx, x.f), ref = (porId(P.paneles, x.o.id) ? 'p:' : 'f:') + x.o.id;
+          return '<tr><td>' + esc(x.o.tag) + ' · ' + esc(x.f.zona || x.o.nivel || '') + '</td><td>' + esc(d ? etiquetaDisp(d) : '— sin modelo —') + '</td><td>' + esc(x.c.circuito) + '</td>' +
+            '<td class="num">' + fmt(Calc.num(x.f.cant), 0) + '</td><td class="num">' + (r.iAlmT === null ? '—' : fmt(r.iAlmT, 4)) + '</td>' +
+            '<td><button class="btn btn-sm" data-act="ir" data-tab="' + esc(ref) + '">Abrir →</button></td></tr>';
+        }).join('') + '</tbody></table></div></section>');
+    }
+
     // Dispositivos
     h.push('<section class="card"><div class="card-h"><h3>Dispositivos conectados</h3>' +
       '<span class="nota">Flujo: 1) Fabricante → 2) Modelo → 3) Nivel y lazo → 4) Cantidad. ' + (esF ? '' : 'Incluya el consumo del panel/transponder como primera fila. ') +
@@ -886,7 +907,7 @@
         out('desc:' + f.id, esc(x.descripcion));
         out('ie:' + f.id, x.iEspT === null ? '' : fmt(x.iEspT, 4));
         out('ia:' + f.id, x.iAlmT === null ? '' : fmt(x.iAlmT, 4));
-        out('av:' + f.id, x.aviso ? '<span class="aviso ' + x.nivel + '" title="' + esc(x.aviso) + '">' + (x.nivel === 'error' ? '❌ ' : '⚠ ') + esc(x.aviso) + '</span>' : '');
+        out('av:' + f.id, x.aviso ? '<span class="aviso ' + x.nivel + '" title="' + esc(x.aviso) + '">' + (x.nivel === 'error' ? '❌ ' : (x.nivel === 'info' ? 'ℹ ' : '⚠ ')) + esc(x.aviso) + '</span>' : '');
         var tr = vista.querySelector('tr[data-fila="' + f.id + '"]');
         if (tr) {
           tr.classList.toggle('aviso-error', x.nivel === 'error');
@@ -1099,7 +1120,7 @@
         if (!r) return;
         out('tag:' + f.id, esc(r.tag)); out('desc:' + f.id, esc(r.descripcion));
         out('ie:' + f.id, r.iEspT === null ? '' : fmt(r.iEspT, 4)); out('ia:' + f.id, r.iAlmT === null ? '' : fmt(r.iAlmT, 4));
-        out('av:' + f.id, r.aviso ? '<span class="aviso ' + r.nivel + '" title="' + esc(r.aviso) + '">' + (r.nivel === 'error' ? '❌ ' : '⚠ ') + esc(r.aviso) + '</span>' : '');
+        out('av:' + f.id, r.aviso ? '<span class="aviso ' + r.nivel + '" title="' + esc(r.aviso) + '">' + (r.nivel === 'error' ? '❌ ' : (r.nivel === 'info' ? 'ℹ ' : '⚠ ')) + esc(r.aviso) + '</span>' : '');
         iE += r.iEspT || 0; iA += r.iAlmT || 0;
         var tr = vista.querySelector('tr[data-fila="' + f.id + '"]');
         if (tr) {
@@ -1771,7 +1792,6 @@
     if (el.dataset.o === 'fila' && (el.dataset.k === 'circ' || el.dataset.k === 'circ2') && el.value === '__nuevo__') { acciones['lazo-nuevo'](el); return; }
     if (el.tagName === 'SELECT') {
       aplicar(el);
-      if (el.dataset.o === 'fila' && el.dataset.k === 'circ') reasignarPorLazo(el);
     }
     var re = el.dataset.re;
     if (re === 'vista' || re === 'all') renderVista();
