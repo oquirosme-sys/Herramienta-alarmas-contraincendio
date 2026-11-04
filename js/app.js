@@ -747,7 +747,8 @@
       '<td class="num" data-out="tot-ie"></td><td></td><td class="num" data-out="tot-ia"></td><td colspan="3"></td></tr></tfoot></table></div>' +
       '<div class="card-b" style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid var(--line)">' +
       '<button class="btn primary btn-sm" data-act="fila-add" data-n="1">+ Fila</button><button class="btn btn-sm" data-act="fila-add" data-n="5">+ 5 filas</button>' +
-      '<button class="btn btn-sm" data-act="filas-limpiar">Quitar filas vacías</button></div></section>');
+      '<button class="btn btn-sm" data-act="filas-limpiar">Quitar filas vacías</button>' +
+      '<button class="btn btn-sm" data-act="copiar-nivel" title="Copia los lazos y dispositivos de otro nivel a este, ligados a este nivel">⧉ Copiar de otro nivel</button></div></section>');
 
     // Cálculo de batería
     h.push('<div class="grid-2col"><section class="card"><div class="card-h"><h3>Cálculo de capacidad de batería</h3><span class="nota">NFPA 72:2022 §10.6.7 / UL 864</span></div>' +
@@ -1536,6 +1537,47 @@
       var eq = equipo(S.tab);
       eq.filas = eq.filas.filter(function (x) { return x.id !== b.dataset.id; });
       proyectoCambiado(); renderVista();
+    },
+    /* Copia los lazos y dispositivos de otro equipo/nivel a este, ligados al nivel de este equipo */
+    'copiar-nivel': function () {
+      var P = S.proy, eq = equipo(S.tab);
+      var otros = P.paneles.concat(P.fuentes).filter(function (x) { return x !== eq && ((x.filas || []).some(function (f) { return f.disp; }) || lazosDe(x.id).length); });
+      if (!otros.length) { toast('No hay otro nivel con dispositivos o lazos para copiar'); return; }
+      var dest = eq.nivel || '(sin nivel)';
+      dialogo({
+        titulo: 'Copiar a ' + eq.tag + ' · ' + dest,
+        html: '<label class="campo"><span>Copiar desde</span><select name="origen">' + otros.map(function (x) {
+          return '<option value="' + esc(x.id) + '">' + esc(x.tag) + (x.nivel ? ' · ' + esc(x.nivel) : '') + ' — ' + (x.filas || []).filter(function (f) { return f.disp; }).length + ' filas, ' + lazosDe(x.id).length + ' lazos</option>';
+        }).join('') + '</select></label>' +
+          '<label class="campo"><span>Si este equipo ya tiene dispositivos o lazos</span><select name="modo"><option value="agregar">Agregar a los existentes</option><option value="reemplazar">Reemplazar (se quitan sus filas y lazos)</option></select></label>' +
+          '<p class="nota">Los lazos se crean de nuevo para este equipo y las filas quedan ligadas a ' + esc(dest) + '. Las filas de otro nivel distinto al del equipo de origen conservan su nivel.</p>',
+        ok: 'Copiar'
+      }).then(function (r) {
+        if (!r) return;
+        var src = porId(P.paneles, r.origen) || porId(P.fuentes, r.origen);
+        if (!src) return;
+        if (r.modo === 'reemplazar') { quitarLazos(eq.id); eq.filas = []; }
+        var tieneTablero = eq.filas.some(function (f) { var d = S.cx.disp[f.disp]; return d && /^(FACP|TRP)$/.test(d.tag); });
+        // lazos: se crean de nuevo en este equipo (mismo tipo, cable y longitud) y se mapean por id
+        var mapa = {}, nL = 0;
+        lazosDe(src.id).forEach(function (c) {
+          var n = clonar(c); n.id = uid('c'); n.fuente = eq.id; n.nivel = eq.nivel || c.nivel || '';
+          if (lazosDe(eq.id).some(function (x) { return x.circuito === n.circuito; })) n.circuito = nuevoCircuito(eq.id, c.tipo).circuito;
+          S.proy.caida.circuitos.push(n); mapa[c.id] = n.id; nL++;
+        });
+        var nF = 0;
+        (src.filas || []).forEach(function (f) {
+          var d = S.cx.disp[f.disp];
+          if (!f.disp && Calc.num(f.cant) === null) return;
+          if (tieneTablero && d && /^(FACP|TRP)$/.test(d.tag)) return;   // el equipo ya tiene su propia fila de panel
+          var c = clonar(f); c.id = uid('r');
+          if (!f.zona || f.zona === src.nivel) c.zona = eq.nivel || f.zona || '';
+          c.circ = mapa[f.circ] || ''; c.circ2 = mapa[f.circ2] || '';
+          eq.filas.push(c); nF++;
+        });
+        proyectoCambiado(); renderVista();
+        toast('Copiados ' + nF + ' dispositivos y ' + nL + ' lazos de ' + src.tag + ' a ' + eq.tag);
+      });
     },
     'filas-limpiar': function () {
       var eq = equipo(S.tab), antes = eq.filas.length;
