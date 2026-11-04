@@ -115,7 +115,8 @@
   }
 
   /* ---------- modelo de dibujo ---------- */
-  var FAC = 0.9;     // factor de ancho del estilo de texto del DXF
+  var FAC = 1.2;     // calibrado con las métricas reales de Century Gothic y el DXF abierto en AutoCAD (factor de ancho 0.8): el texto ocupa ≈ 86 % de la caja prevista (margen ≈ 14 %)
+  var WF = 0.8;      // factor de ancho de los TEXT del DXF
   /* ancho estimado de un texto de altura h (mayúscula): Century Gothic tiene mayúsculas anchas (≈ 0.74 em) y minúsculas ≈ 0.58 em; em = h / 0.72 */
   function anchoTxt(t, h) {
     var em = h / 0.72, w = 0;
@@ -235,7 +236,7 @@
       } else if (e.k === 'T') {
         g(0, 'TEXT'); g(8, e.c); g(10, n(e.a[0])); g(20, n(e.a[1])); g(30, 0); g(40, n(e.h)); g(1, txt(e.t));
         if (e.r) g(50, n(e.r));
-        g(41, 0.9); g(7, 'CENTURY');
+        g(41, WF); g(7, 'CENTURY');
         if (e.al !== 'l') { g(72, e.al === 'c' ? 1 : 2); g(11, n(e.a[0])); g(21, n(e.a[1])); g(31, 0); g(73, 0); }
       }
     });
