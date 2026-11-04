@@ -268,6 +268,21 @@
     else if (sel && !actual) h += '<option value="' + esc(sel) + '" selected>(lazo eliminado)</option>';
     return h + '<option value="__nuevo__">＋ Nuevo lazo…</option>';
   }
+  /* Segundo lazo de un dispositivo con doble conexión: lazos del tipo pedido del equipo de la fila y de los demás equipos (agrupados) */
+  function optsLazosTipo(eq, sel, tipo) {
+    var vistos = {};
+    function op(c) { vistos[c.id] = 1; return '<option value="' + esc(c.id) + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.circuito) + (c.nivel ? ' · ' + esc(c.nivel) : '') + '</option>'; }
+    var h = '<option value="">— ' + esc(etiquetaTipo(tipo)) + ' —</option>' + lazosDe(eq.id).filter(function (c) { return c.tipo === tipo; }).map(op).join('');
+    S.proy.paneles.concat(S.proy.fuentes).forEach(function (o) {
+      if (o.id === eq.id) return;
+      var ls = lazosDe(o.id).filter(function (c) { return c.tipo === tipo; });
+      if (ls.length) h += '<optgroup label="Lazos de ' + esc(o.tag + (o.nivel ? ' · ' + o.nivel : '')) + '">' + ls.map(op).join('') + '</optgroup>';
+    });
+    var actual = sel && porId(S.proy.caida.circuitos, sel);
+    if (actual && !vistos[actual.id]) h += '<option value="' + esc(actual.id) + '" selected>' + esc(actual.circuito + ' · ' + nombreEquipo(actual.fuente)) + '</option>';
+    else if (sel && !actual) h += '<option value="' + esc(sel) + '" selected>(lazo eliminado)</option>';
+    return h + '<option value="__nuevo__">＋ Nuevo lazo…</option>';
+  }
   /* En la vista de nivel: si se elige un lazo de otro equipo, la fila pasa a ese equipo (el lazo define de dónde sale el dispositivo) */
   function reasignarPorLazo(el) {
     var eq = equipo(el.dataset.eq), f = eq && porId(eq.filas, el.dataset.id), k = el.dataset.k;
@@ -276,8 +291,6 @@
     var dest = porId(S.proy.paneles, c.fuente) || porId(S.proy.fuentes, c.fuente);
     if (!dest) return;
     eq.filas = eq.filas.filter(function (x) { return x !== f; });
-    var otroK = k === 'circ' ? 'circ2' : 'circ', oc = porId(S.proy.caida.circuitos, f[otroK]);
-    if (oc && oc.fuente !== dest.id) f[otroK] = '';
     dest.filas.push(f);
     proyectoCambiado(); renderVista();
     toast('Dispositivo conectado a ' + dest.tag + ' (lazo ' + c.circuito + ')');
@@ -995,9 +1008,9 @@
       '<td><input class="in w-xl" type="text" autocomplete="off" data-combo="1" data-eq="' + esc(ref) + '" data-id="' + esc(f.id) + '" data-label="' + esc(d ? etiquetaDisp(d) : '') + '" value="' + esc(d ? etiquetaDisp(d) : '') + '" placeholder="— escriba para buscar: modelo, tag, descripción, fabricante —" title="Escriba para filtrar (por ejemplo: jack, estrobo, 4098, CO)"></td>' +
       '<td class="calc" data-out="tag:' + f.id + '"></td>' +
       '<td><select class="in w-md" ' + b('zona') + '>' + optsNiveles(f.zona) + '</select></td>' +
-      '<td><select class="in w-md" ' + b('circ') + '>' + (nivelVista ? optsLazosNivel(equipo(ref), f.circ, f.zona, d) : optsLazos(equipo(ref), f.circ)) + '</select>' +
+      '<td><select class="in w-md" ' + b('circ') + '>' + optsLazosNivel(equipo(ref), f.circ, f.zona, d) + '</select>' +
       (d && Calc.tipoLazo2De(d) ? '<select class="in w-md" style="margin-top:.25rem" title="Este dispositivo se conecta también a un lazo de ' + esc(Calc.tipoLazo2De(d)) + (Calc.parNacVoceo(d) ? ' (o use un solo lazo NAC+Voceo)' : '') + '" ' + b('circ2') + '>' +
-        optsLazos(equipo(ref), f.circ2, Calc.tipoLazo2De(d)).replace('— sin lazo —', '— ' + esc(etiquetaTipo(Calc.tipoLazo2De(d))) + ' —') + '</select>' : '') + '</td>' +
+        optsLazosTipo(equipo(ref), f.circ2, Calc.tipoLazo2De(d)) + '</select>' : '') + '</td>' +
       '<td><input class="in w-xs" type="number" min="0" step="1" ' + b('cant', 'num') + ' value="' + fmtN(f.cant) + '" placeholder="10"></td>' +
       '<td><input class="in w-xs" type="number" step="any" ' + b('iEsp', 'num') + ' value="' + fmtN(f.iEsp) + '" placeholder="' + (d ? fmtN(d.iEspera) : '') + '"></td>' +
       '<td class="calc num" data-out="ie:' + f.id + '"></td>' +
@@ -1758,7 +1771,7 @@
     if (el.dataset.o === 'fila' && (el.dataset.k === 'circ' || el.dataset.k === 'circ2') && el.value === '__nuevo__') { acciones['lazo-nuevo'](el); return; }
     if (el.tagName === 'SELECT') {
       aplicar(el);
-      if (el.dataset.o === 'fila' && (el.dataset.k === 'circ' || el.dataset.k === 'circ2') && S.tab.indexOf('n:') === 0) reasignarPorLazo(el);
+      if (el.dataset.o === 'fila' && el.dataset.k === 'circ') reasignarPorLazo(el);
     }
     var re = el.dataset.re;
     if (re === 'vista' || re === 'all') renderVista();
