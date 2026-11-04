@@ -41,8 +41,77 @@
   ];
   function simboloDe(d) {
     var tag = (d && d.tag) || '';
+    if (/^(TRP|CO-B|TC4)/.test(tag)) { for (var k = 0; k < SIM_TAG.length; k++) if (SIM_TAG[k][0].test(tag)) return SIM_TAG[k][1]; }
+    var fila = global.Simbologia && global.Simbologia.filaDe(d);   // símbolo según la simbología CDCLH-001S
+    if (fila) return fila.sim;
     for (var i = 0; i < SIM_TAG.length; i++) if (SIM_TAG[i][0].test(tag)) return SIM_TAG[i][1];
     return 'FA001';
+  }
+
+  /* ======================= LEYENDA DE SIMBOLOGÍA (CDCLH-001S + modelos del catálogo) ======================= */
+  function claveSimb(d) { var r = global.Simbologia && global.Simbologia.filaDe(d); return r ? r.id : d.id; }
+  function nombreFab(cx, id) { return cx.fabricantes && cx.fabricantes[id] ? cx.fabricantes[id].nombre : String(id || '').toUpperCase(); }
+  function unicos(a) { var o = [], v = {}; a.forEach(function (x) { if (x && !v[x]) { v[x] = 1; o.push(x); } }); return o; }
+
+  /* dispositivos distintos usados en el proyecto (con cantidad) */
+  function dispositivosUsados(ctx) {
+    var P = ctx.proy, cx = ctx.cx, Calc = ctx.Calc, ids = [], lista = [];
+    P.paneles.concat(P.fuentes).forEach(function (eq) {
+      (eq.filas || []).forEach(function (f) {
+        var dsp = cx.disp[f.disp];
+        if (!dsp || !Calc.num(f.cant) || /^(FACP|TRP|OTRO)$/.test(dsp.tag)) return;
+        if (ids.indexOf(dsp.id) < 0) { ids.push(dsp.id); lista.push(dsp); }
+      });
+    });
+    return lista;
+  }
+
+  /* referencia automática: la de la lámina CDCLH-001S de cada fabricante + los modelos del catálogo (usados, o los del fabricante del proyecto) */
+  function refAuto(row, devs, P, cx) {
+    var fabs = unicos(devs.map(function (q) { return q.fabricante; })), lineas = [];
+    if (!fabs.length) fabs = [P.fabricante];
+    fabs.forEach(function (fid) {
+      var nom = nombreFab(cx, fid), pdf = row && row.ref && row.ref[fid] ? row.ref[fid] : '';
+      var propios = devs.filter(function (q) { return q.fabricante === fid; });
+      if (!devs.length && row && global.Simbologia) propios = (cx.raw.dispositivos || []).filter(function (q) { return q.fabricante === fid && global.Simbologia.filaDe(q) === row; });
+      function sinAcento(t) { return String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase(); }
+      var modelos = unicos(propios.map(function (q) { return q.modelo; })).filter(function (m) { return m && m !== '—' && sinAcento(pdf).indexOf(sinAcento(m)) < 0; });
+      if (pdf) lineas.push('REFERENCIA ' + nom + ': ' + pdf);
+      if (modelos.length) lineas.push((pdf ? 'ADEMÁS EN CATÁLOGO ' : 'REFERENCIA ') + nom + ': ' + modelos.slice(0, 6).join(', '));
+    });
+    return lineas.join('\n');
+  }
+
+  /* filas de la leyenda: por cada fila de la simbología, los dispositivos del proyecto que le corresponden; modo «on»/«off» por fila; todas = lámina de simbología completa */
+  function itemsLeyenda(ctx, devs, numDe, todas) {
+    var P = ctx.proy, cx = ctx.cx, ov = P.simbDU || {}, Sb = global.Simbologia, porFila = {}, sueltos = [], items = [];
+    devs.forEach(function (dsp) { var r = Sb && Sb.filaDe(dsp); if (r) (porFila[r.id] = porFila[r.id] || []).push(dsp); else sueltos.push(dsp); });
+    if (Sb) Sb.filas.forEach(function (r) {
+      var o = ov[r.id] || {}, usado = !!porFila[r.id];
+      if (o.modo === 'off') return;
+      if (!usado && !(o.modo === 'on' || todas)) return;
+      var dv = porFila[r.id] || [];
+      items.push({ row: r, devs: dv, num: usado ? numDe[r.id] : null, sid: dv.length ? simboloDe(dv[0]) : r.sim, desc: o.desc || r.desc, refOv: o.ref });
+    });
+    sueltos.forEach(function (dsp) { items.push({ row: null, devs: [dsp], num: numDe[dsp.id], sid: simboloDe(dsp), desc: (dsp.tipo ? dsp.tipo + ' — ' : '') + (dsp.descripcion || ''), refOv: '' }); });
+    items.forEach(function (it) { it.ref = it.refOv ? String(it.refOv) : refAuto(it.row, it.devs, P, cx); });
+    return items;
+  }
+
+  function dibujarLeyenda(d, lx, yy, lw, items) {
+    var cw = 24, rw = 64, dw = lw - cw - rw - 4;
+    items.forEach(function (it) {
+      var ld = partir(it.desc, 2.3, dw), lr = [];
+      String(it.ref || '').split('\n').forEach(function (par) { partir(par, 2.1, rw - 3).forEach(function (l) { lr.push(l); }); });
+      var al = Math.max(15, Math.max(ld.length * 3.5, lr.length * 3.2) + 5), cb = caja(SIM[it.sid] || SIM.FA001), esc = Math.min(1.4, 12 / Math.max(cb.w, cb.h));
+      d.R(lx, yy - al, lw, al, 'FA-TABLA'); d.L(lx + cw, yy, lx + cw, yy - al, 'FA-TABLA'); d.L(lx + lw - rw, yy, lx + lw - rw, yy - al, 'FA-TABLA');
+      d.S(it.sid, lx + 12, yy - al / 2, esc, 'FA-SIMBOLOS');
+      if (it.num) { d.C(lx + 4, yy - 4, 2.2, 'FA-TEXTO'); d.T(lx + 4, yy - 4.8, it.num, 2.2, 'FA-TEXTO', 'c'); }
+      ld.forEach(function (t, k) { d.T(lx + cw + 2, yy - 5 - k * 3.5, t, 2.3, 'FA-TEXTO'); });
+      lr.forEach(function (t, k) { d.T(lx + lw - rw + 2, yy - 5 - k * 3.2, t, 2.1, 'FA-TEXTO'); });
+      yy -= al;
+    });
+    return yy;
   }
 
   /* ---------- modelo de dibujo ---------- */
@@ -387,7 +456,7 @@
     }
 
     /* ---- dispositivos por lazo (principal y de alimentación 24 V) y sin lazo asignado ---- */
-    var porLazo = {}, sinLazo = {}, usados = [], numDe = {}, anunc = [];
+    var porLazo = {}, sinLazo = {}, usados = [], numDe = {}, anunc = [], nNum = 0;
     function sumar(lista, dsp, cant) {
       var g = lista.filter(function (x) { return x.dsp.id === dsp.id; })[0];
       if (g) g.cant += cant; else lista.push({ dsp: dsp, cant: cant });
@@ -404,7 +473,9 @@
           sumar(sinLazo[nv][t] = sinLazo[nv][t] || [], dsp, cant);
         }
         if (Calc.tipoLazo2De(dsp) && f.circ2 && circs[f.circ2]) sumar(porLazo[f.circ2] = porLazo[f.circ2] || [], dsp, cant);
-        if (usados.indexOf(dsp.id) < 0) { usados.push(dsp.id); numDe[dsp.id] = usados.length; }
+        var cl = claveSimb(dsp);
+        if (!numDe[cl]) numDe[cl] = ++nNum;
+        if (usados.indexOf(dsp.id) < 0) usados.push(dsp.id);
       });
     });
 
@@ -566,7 +637,7 @@
           var x = xChain + j * PASO + PASO / 2, sid = simboloDe(it.dsp), cb = caja(SIM[sid] || SIM.FA001), esc = Math.min(ESC, 11 / Math.max(cb.w, cb.h)), top = cb.h * esc / 2;
           d.S(sid, x, y, esc, 'FA-SIMBOLOS');
           d.C(x, y + top + 4.6, 2.2, 'FA-TEXTO'); d.L(x, y + top + 2.4, x, y + top, 'FA-TEXTO');
-          d.T(x, y + top + 3.8, numDe[it.dsp.id], 2.2, 'FA-TEXTO', 'c');
+          d.T(x, y + top + 3.8, numDe[claveSimb(it.dsp)], 2.2, 'FA-TEXTO', 'c');
           d.T(x, y - top - 3.4, '×' + it.cant, 2.4, 'FA-TEXTO', 'c');
         });
         if (!f.g.length && c) d.T(xChain + 4, y + 1, 'sin dispositivos asignados', 2.4, 'FA-ALERTA');
@@ -629,19 +700,10 @@
     /* ---- tablas a la derecha ---- */
     var lx = xEnd + 24, ly = yTop - 4, lw = 235;
     function tit(yy, t) { d.R(lx, yy - 12, lw, 12, 'FA-TABLA'); d.T(lx + lw / 2, yy - 8.2, t, 3.4, 'FA-TEXTO', 'c'); return yy - 12; }
-    var yy = tit(ly, 'SIMBOLOGÍA DE ALARMAS CONTRA INCENDIO (NFPA 170)');
-    usados.forEach(function (id) {
-      var dsp = cx.disp[id], sid = simboloDe(dsp), cb = caja(SIM[sid] || SIM.FA001), esc = Math.min(1.4, 12 / Math.max(cb.w, cb.h));
-      var fab = cx.fabricantes && cx.fabricantes[dsp.fabricante] ? cx.fabricantes[dsp.fabricante].nombre : '';
-      var lin = partir((dsp.tipo ? dsp.tipo + ' — ' : '') + (dsp.descripcion || ''), 2.3, lw - 80), al = Math.max(15, lin.length * 3.5 + 4);
-      d.R(lx, yy - al, lw, al, 'FA-TABLA'); d.L(lx + 24, yy, lx + 24, yy - al, 'FA-TABLA'); d.L(lx + lw - 52, yy, lx + lw - 52, yy - al, 'FA-TABLA');
-      d.S(sid, lx + 12, yy - al / 2, esc, 'FA-SIMBOLOS');
-      d.C(lx + 4, yy - 4, 2.2, 'FA-TEXTO'); d.T(lx + 4, yy - 4.8, numDe[id], 2.2, 'FA-TEXTO', 'c');
-      lin.forEach(function (t, k) { d.T(lx + 26, yy - 5 - k * 3.5, t, 2.3, 'FA-TEXTO'); });
-      d.T(lx + lw - 50, yy - 5, 'REFERENCIA ' + fab, 2, 'FA-TEXTO'); d.T(lx + lw - 50, yy - 9, dsp.modelo && dsp.modelo !== '—' ? dsp.modelo : (dsp.tag || ''), 2.3, 'FA-TEXTO');
-      yy -= al;
-    });
-    if (!usados.length) { d.R(lx, yy - 14, lw, 14, 'FA-TABLA'); d.T(lx + 4, yy - 8, 'Asigne dispositivos a los niveles en las pestañas de cada panel.', 2.6, 'FA-TEXTO'); yy -= 14; }
+    var yy = tit(ly, 'SIMBOLOGÍA DE ALARMAS CONTRA INCENDIO (CDCLH-001S · NFPA 170)');
+    var itemsL = itemsLeyenda(ctx, usados.map(function (id) { return cx.disp[id]; }), numDe, false);
+    yy = dibujarLeyenda(d, lx, yy, lw, itemsL);
+    if (!itemsL.length) { d.R(lx, yy - 14, lw, 14, 'FA-TABLA'); d.T(lx + 4, yy - 8, 'Asigne dispositivos a los niveles en las pestañas de cada panel.', 2.6, 'FA-TEXTO'); yy -= 14; }
 
     yy = tit(yy - 10, 'CABLEADO SISTEMA ALARMAS CONTRA INCENDIO');
     NO.cab.filter(function (q) { return q.on; }).forEach(function (q) {
@@ -698,12 +760,27 @@
     return { ancho: lx + lw, yFin: Math.min(yy, fy - anunc.length * 12) };
   }
 
+  /* Lámina de simbología: todas las filas de la CDCLH-001S (salvo las apagadas) con los modelos del catálogo */
+  function dibujarSimb(d, ctx, x0, yTop) {
+    var P = ctx.proy, lw = 300, y = yTop;
+    d.T(x0, y, 'SIMBOLOGÍA DE ALARMAS CONTRA INCENDIO', 6, 'FA-TEXTO');
+    d.T(x0, y - 8, (P.nombre || '') + (P.numero ? ' · ' + P.numero : '') + ' · ' + (global.Simbologia ? global.Simbologia.fuente : '') + ' · símbolos NFPA 170 (2018) cap. 8', 3, 'FA-TEXTO');
+    y -= 16;
+    var devs = dispositivosUsados(ctx), numDe = {}, n = 0;
+    devs.forEach(function (q) { var c = claveSimb(q); if (!numDe[c]) numDe[c] = ++n; });
+    d.R(x0, y - 12, lw, 12, 'FA-TABLA'); d.T(x0 + lw / 2, y - 8.2, 'SIMBOLOGÍA — se marcan con número los que usa este proyecto', 3.4, 'FA-TEXTO', 'c'); y -= 12;
+    y = dibujarLeyenda(d, x0, y, lw, itemsLeyenda(ctx, devs, numDe, true));
+    d.T(x0, y - 6, 'FABRICANTES ACEPTADOS: NOTIFIER, SIMPLEX, EST, BOSCH, HOCHIKI, FIRE LITE, GAMEWELL. ALGUNOS DE LOS ELEMENTOS DE ESTA SIMBOLOGÍA PODRÍAN NO APLICAR EN ESTE PROYECTO.', 2.4, 'FA-TEXTO');
+    return { ancho: lw, yFin: y - 10 };
+  }
+
   /* ======================= láminas completas ======================= */
   function lamina(tipo, ctx) {
     var M = ctx.proy.matriz || matrizBase();
     var d = new Dib(0, 0), r;
     if (tipo === 'du') r = dibujarDU(d, ctx, 20, 700);
     else if (tipo === 'matriz') r = dibujarMatriz(d, M, 20, 700);
+    else if (tipo === 'simb') r = dibujarSimb(d, ctx, 20, 700);
     else r = dibujarCalculos(d, ctx, 20, 700);
     // dimensiones de la hoja: ajustadas al contenido (para pegar en láminas); origen (0,0) abajo-izquierda
     var minY = 1e9, maxX = 0;
@@ -960,8 +1037,8 @@
   /* arma las láminas: cada una es un Dib de 1100 × 750 (origen en 0) con cajetín y su parte del dibujo */
   function hojas(tipo, ctx, extra) {
     var d = lamina(tipo, ctx), R = repartirDib(d), P = ctx.proy, n = R.partes.length;
-    var titulos = { du: 'Diagrama unifilar de alarma contra incendio', matriz: 'Matriz de alarma contra incendio', calc: 'Cálculos de baterías y caída de tensión' };
-    var cod = { du: 'AI-01', matriz: 'AI-02', calc: 'AI-03' }[tipo];
+    var titulos = { du: 'Diagrama unifilar de alarma contra incendio', matriz: 'Matriz de alarma contra incendio', calc: 'Cálculos de baterías y caída de tensión', simb: 'Simbología de alarma contra incendio' };
+    var cod = { du: 'AI-01', matriz: 'AI-02', calc: 'AI-03', simb: 'AI-04' }[tipo];
     var salida = [];
     R.partes.forEach(function (pr, i) {
       var ya = pr[0], yb = pr[1], h = new Dib(SW, SH), esc = R.esc;
@@ -1020,6 +1097,8 @@
   /* ---------- API ---------- */
   global.Lamina = {
     hojas: hojas, dxfHojas: dxfHojas, htmlHojas: htmlHojas, notasDUBase: notasDUBase,
+    refAuto: function (rowId, ctx) { var r = global.Simbologia && global.Simbologia.porId(rowId); if (!r) return ''; var dv = dispositivosUsados(ctx).filter(function (q) { return global.Simbologia.filaDe(q) === r; }); return refAuto(r, dv, ctx.proy, ctx.cx); },
+    usaFila: function (rowId, ctx) { var r = global.Simbologia && global.Simbologia.porId(rowId); return !!r && dispositivosUsados(ctx).some(function (q) { return global.Simbologia.filaDe(q) === r; }); },
     Dib: Dib, SIM: SIM, simboloDe: simboloDe, caja: caja, lamina: lamina, aSVG: aSVG, aDXF: aDXF,
     matrizBase: matrizBase, importarArchivo: importarArchivo, matrizDeGrid: matrizDeGrid,
     CAPAS: CAPAS

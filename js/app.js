@@ -1191,7 +1191,8 @@
   var LAMINAS = [
     { id: 'du', t: 'Diagrama unifilar (DU)', f: 'DU alarmas' },
     { id: 'matriz', t: 'Matriz de entradas / salidas', f: 'Matriz alarmas' },
-    { id: 'calc', t: 'Cálculos (baterías, fuentes, caídas)', f: 'Calculos alarmas' }
+    { id: 'calc', t: 'Cálculos (baterías, fuentes, caídas)', f: 'Calculos alarmas' },
+    { id: 'simb', t: 'Simbología', f: 'Simbologia alarmas' }
   ];
   function ctxLamina() { return { proy: S.proy, cx: S.cx, Calc: Calc }; }
   function matrizProy() { return S.proy.matriz || (S.proy.matriz = Lamina.matrizBase()); }
@@ -1266,6 +1267,23 @@
       lista('gen', 'Notas generales (tabla «Notas sistema alarmas contra incendio»)', 'Se numeran en orden según las que estén marcadas.') +
       '<div class="acciones" style="margin-top:.8rem"><button class="btn" data-act="nu-base">Restablecer notas base</button></div></div>';
   }
+  /* Simbología CDCLH-001S: por fila, mostrar siempre / automático (si el proyecto la usa) / ocultar; descripción y referencia editables */
+  function simbProy() { return S.proy.simbDU || (S.proy.simbDU = {}); }
+  function editorSimbologia() {
+    var ov = simbProy(), ctx = ctxLamina();
+    var h = '<div class="card"><h2>Simbología (CDCLH-001S)</h2>' +
+      '<p class="muted">Las descripciones y referencias salen de la simbología de alarmas contra incendio CDCLH-001S (versiones Simplex y Notifier) y se completan con los modelos ya cargados en el catálogo. ' +
+      '«Automático» muestra la fila solo si el proyecto usa un dispositivo de ese tipo; «Siempre» la muestra aunque no se use; «Nunca» la oculta. La referencia vacía se calcula sola.</p>' +
+      '<div style="overflow:auto;max-height:70vh"><table class="tabla"><thead><tr><th>Símbolo</th><th>Mostrar</th><th style="min-width:26rem">Descripción</th><th style="min-width:18rem">Referencia (vacío = automática)</th></tr></thead><tbody>';
+    Simbologia.filas.forEach(function (r) {
+      var o = ov[r.id] || {}, usa = Lamina.usaFila(r.id, ctx), modo = o.modo || 'auto';
+      h += '<tr><td><b>' + esc(r.nombre) + '</b><br><small class="muted">' + (usa ? 'usado en el proyecto' : 'no usado') + ' · ' + esc(r.sim) + '</small></td>' +
+        '<td><select data-sb="modo" data-id="' + esc(r.id) + '"><option value="auto"' + (modo === 'auto' ? ' selected' : '') + '>Automático</option><option value="on"' + (modo === 'on' ? ' selected' : '') + '>Siempre</option><option value="off"' + (modo === 'off' ? ' selected' : '') + '>Nunca</option></select></td>' +
+        '<td><textarea rows="3" data-sb="desc" data-id="' + esc(r.id) + '" style="width:100%">' + esc(o.desc || r.desc) + '</textarea></td>' +
+        '<td><textarea rows="3" data-sb="ref" data-id="' + esc(r.id) + '" placeholder="' + esc(Lamina.refAuto(r.id, ctx)) + '" style="width:100%">' + esc(o.ref || '') + '</textarea></td></tr>';
+    });
+    return h + '</tbody></table></div><div class="acciones" style="margin-top:.8rem"><button class="btn" data-act="sb-base">Restablecer simbología</button></div></div>';
+  }
   function editorMatriz() {
     var M = matrizProy();
     var h = '<div class="card"><h2>Matriz de entradas / salidas</h2>' +
@@ -1305,7 +1323,7 @@
         return '<button class="btn' + (S.lam === l.id ? ' primario' : '') + '" data-act="lam-sel" data-id="' + l.id + '">' + esc(l.t) + '</button>';
       }).join('') +
       '<span style="flex:1"></span><button class="btn primario" data-act="lam-dxf">⬇ Descargar DXF de esta lámina</button>' +
-      '<button class="btn" data-act="lam-dxf-todas">⬇ Las 3 láminas</button></div>' +
+      '<button class="btn" data-act="lam-dxf-todas">⬇ Todas las láminas</button></div>' +
       '<div class="acciones" style="margin-top:.5rem"><span class="muted">Láminas con cajetín Sinergia 1100 × 750 mm:</span>' +
       '<button class="btn" data-act="lam-dxf-hojas">⬇ DXF en láminas con cajetín</button>' +
       '<button class="btn" data-act="lam-pdf-hojas">🖨 PDF en láminas con cajetín</button></div></div>';
@@ -1316,11 +1334,20 @@
       '<button class="btn btn-sm" data-act="z-in" title="Acercar">＋</button><button class="btn btn-sm" data-act="z-fit" title="Ajustar a la ventana">Ajustar</button></div>' +
       '<div id="laminaVista" style="height:72vh;overflow:hidden;background:#fff;border:1px solid var(--line,#ccc);border-radius:6px;cursor:grab"></div></div>';
     if (S.lam === 'du') h += editorNotasDU();   // las notas se editan debajo del diagrama
+    if (S.lam === 'du' || S.lam === 'simb') h += editorSimbologia();
     vista.innerHTML = h;
     S.pintor = pintarLamina;
   }
   vista.addEventListener('change', function (e) {
     var en = e.target;
+    if (en.dataset && en.dataset.sb) {
+      var SB = simbProy(), fila = Simbologia.porId(en.dataset.id), o = SB[en.dataset.id] || (SB[en.dataset.id] = {});
+      if (en.dataset.sb === 'modo') { o.modo = en.value; if (o.modo === 'auto') delete o.modo; }
+      else if (en.dataset.sb === 'desc') { if (en.value.trim() === fila.desc.trim() || !en.value.trim()) delete o.desc; else o.desc = en.value; }
+      else if (en.dataset.sb === 'ref') { if (en.value.trim()) o.ref = en.value; else delete o.ref; }
+      if (!Object.keys(o).length) delete SB[en.dataset.id];
+      proyectoCambiado(); pintarLamina(); return;
+    }
     if (en.dataset && en.dataset.nu) {
       var NU = notasDUProy(), q = porId(NU[en.dataset.g], en.dataset.id);
       if (q) { if (en.dataset.nu === 'on') { q.on = en.checked; var ta = en.parentNode.querySelector('textarea'); if (ta) ta.style.opacity = q.on ? '' : '.5'; } else q.txt = en.value; }
@@ -1776,6 +1803,11 @@
       renderTabs();
     },
     'lam-sel': function (b) { S.lam = b.dataset.id; S.lamView = null; renderVista(); },
+    'sb-base': function () {
+      confirmar('Restablecer simbología', 'Se quitan los cambios de modo, descripción y referencia de la simbología de este proyecto. ¿Continuar?', 'Restablecer').then(function (ok) {
+        if (!ok) return; S.proy.simbDU = {}; proyectoCambiado(); renderVista();
+      });
+    },
     'nu-add': function (b) {
       var N = notasDUProy(), g = b.dataset.g;
       N[g].push({ id: uid('n'), on: true, txt: b.dataset.item ? 'NUEVO BOTÓN DE DESCONEXIÓN' : 'Nueva nota', grupo: b.dataset.item ? 'i' : '' });
@@ -1800,7 +1832,7 @@
       setTimeout(function () { w.focus(); w.print(); }, 900);
       toast('En el cuadro de impresión: Guardar como PDF, tamaño 1100 × 750 mm (o A0), márgenes ninguno, sin encabezados');
     },
-    'lam-dxf-todas': function () { LAMINAS.forEach(function (l, i) { setTimeout(function () { descargarDXF(l.id); }, i * 400); }); toast('Se descargan 3 archivos DXF'); },
+    'lam-dxf-todas': function () { LAMINAS.forEach(function (l, i) { setTimeout(function () { descargarDXF(l.id); }, i * 400); }); toast('Se descargan ' + LAMINAS.length + ' archivos DXF'); },
     'mat-base': function () {
       confirmar('Restablecer matriz', 'Se reemplaza la matriz del proyecto por la matriz base. ¿Continuar?', 'Restablecer').then(function (ok) {
         if (!ok) return; S.proy.matriz = Lamina.matrizBase(); proyectoCambiado(); renderVista();

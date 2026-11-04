@@ -3,7 +3,7 @@
  * Corrientes en mA a 24 VDC · resistencia de cable en Ω/km por conductor · baterías 12 V SLA (2 en serie = 24 V).
  * En la fase 2 estas listas pasan a tablas de Supabase. */
 window.CATALOGO_BASE = {
-  version: 7,
+  version: 8,
   actualizado: "2026-10-07",
   fabricantes: [
     {"id": "simplex", "nombre": "SIMPLEX"},
@@ -69,9 +69,9 @@ window.CATALOGO_BASE = {
     {"id": "d104", "fabricante": "simplex", "modelo": "4904-9183", "tag": "ST-C-WRF 110cd", "tipo": "Estrobo de cielo direccionable", "descripcion": "ESTROBO DE CIELO DIRECCIONABLE 49VO-APPLC (4904-9183) 110 cd", "iEspera": 0.8, "iAlarma": 277, "circuito": "IDNAC", "obs": "Ficha S4906-0004 Rev.5 (estrobos de cielo direccionables 4906-9202 / 4906-9204): IDNAC 23 VDC RMS, 23–31 V; reposo 0.8 mA (1 unidad de carga). La ficha no lista el código 4904-9183 ni 49VO-APPLC: CONFIRMAR la equivalencia."},
     {"id": "d29", "fabricante": "notifier", "modelo": "NFS2-3030", "tag": "FACP", "tipo": "Panel de control (FACP)", "descripcion": "PANEL NFS2-3030 (CPU-3030 + display)", "iEspera": 210, "iAlarma": 375, "circuito": "SISTEMA", "obs": "Ficha DN-7080. Sumar lazos LCM/LEM y fuente"},
     {"id": "d30", "fabricante": "notifier", "modelo": "NFS-320", "tag": "FACP", "tipo": "Panel de control (FACP)", "descripcion": "PANEL NFS-320", "iEspera": 120, "iAlarma": 220, "circuito": "SISTEMA", "obs": "Ficha DN-7112. Verificar accesorios"},
-    {"id": "d31", "fabricante": "notifier", "modelo": "FSP-951", "tag": "SDH", "tipo": "Detector de humo", "descripcion": "DETECTOR HUMO FOTOELÉCTRICO FlashScan", "iEspera": 0.3, "iAlarma": 6.5, "circuito": "SLC", "obs": "Ficha DN-60735; LED alarma"},
-    {"id": "d32", "fabricante": "notifier", "modelo": "FST-951", "tag": "SDT", "tipo": "Detector térmico", "descripcion": "DETECTOR TÉRMICO FlashScan", "iEspera": 0.3, "iAlarma": 6.5, "circuito": "SLC", "obs": "Ficha DN-60737"},
-    {"id": "d33", "fabricante": "notifier", "modelo": "DNR + FSP-951R", "tag": "SD-DUCTO", "tipo": "Detector de humo de ducto", "descripcion": "DETECTOR DE HUMO EN DUCTO", "iEspera": 0.3, "iAlarma": 6.5, "circuito": "SLC", "circuito2": "24VDC", "obs": "Ficha DN-60054"},
+    {"id": "d31", "fabricante": "notifier", "modelo": "FSP-951", "tag": "SDH", "tipo": "Detector de humo", "descripcion": "DETECTOR HUMO FOTOELÉCTRICO FlashScan", "iEspera": 0.3, "iAlarma": 6.5, "circuito": "SLC", "obs": "Ficha DN-60735; LED alarma [Actualización en línea 2026-11: la serie 951 reemplazó a la 851 y Honeywell ya la lista como descontinuada; no se encontró un sucesor publicado: confirmar con el distribuidor antes de especificar.]"},
+    {"id": "d32", "fabricante": "notifier", "modelo": "FST-951", "tag": "SDT", "tipo": "Detector térmico", "descripcion": "DETECTOR TÉRMICO FlashScan", "iEspera": 0.3, "iAlarma": 6.5, "circuito": "SLC", "obs": "Ficha DN-60737 [Actualización en línea 2026-11: la serie 951 reemplazó a la 851 y Honeywell ya la lista como descontinuada; no se encontró un sucesor publicado: confirmar con el distribuidor antes de especificar.]"},
+    {"id": "d33", "fabricante": "notifier", "modelo": "DNR + FSP-951R", "tag": "SD-DUCTO", "tipo": "Detector de humo de ducto", "descripcion": "DETECTOR DE HUMO EN DUCTO", "iEspera": 0.3, "iAlarma": 6.5, "circuito": "SLC", "circuito2": "24VDC", "obs": "Ficha DN-60054 [Actualización en línea 2026-11: la serie 951 reemplazó a la 851 y Honeywell ya la lista como descontinuada; no se encontró un sucesor publicado: confirmar con el distribuidor antes de especificar.]"},
     {"id": "d34", "fabricante": "notifier", "modelo": "NBG-12LX", "tag": "EM", "tipo": "Estación manual", "descripcion": "ESTACIÓN MANUAL DIRECCIONABLE", "iEspera": 0.23, "iAlarma": 5, "circuito": "SLC", "obs": "Ficha DN-6726"},
     {"id": "d35", "fabricante": "notifier", "modelo": "FMM-1", "tag": "AIM", "tipo": "Módulo de monitoreo (AIM)", "descripcion": "MÓDULO DE MONITOREO", "iEspera": 0.375, "iAlarma": 5, "circuito": "SLC", "obs": "Ficha DN-6720"},
     {"id": "d36", "fabricante": "notifier", "modelo": "FZM-1", "tag": "ZAM", "tipo": "Módulo de zona (ZAM)", "descripcion": "MÓDULO INTERFAZ ZONA CONVENCIONAL", "iEspera": 0.3, "iAlarma": 5, "circuito": "SLC", "circuito2": "24VDC", "obs": "Ficha DN-6720; sumar consumo zona en 24V"},
