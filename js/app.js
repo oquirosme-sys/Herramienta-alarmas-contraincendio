@@ -1462,12 +1462,42 @@
     S.lamZoom = zoom; S.lamAjustar = ajustar;
     ver();
     svg.addEventListener('wheel', function (e) { e.preventDefault(); zoom(e.deltaY < 0 ? 1.18 : 1 / 1.18, aPunto(e.clientX, e.clientY)); }, { passive: false });
-    var arr = null, mov = null;
+    var arr = null, mov = null, armado = null;      // armado: texto habilitado para moverse (tras «Mover» en el menú del clic derecho)
+    function desarmar() { if (armado) { armado.el.setAttribute('stroke', 'none'); armado.el.removeAttribute('stroke-width'); armado.el.style.cursor = 'context-menu'; armado = null; } }
     svg.addEventListener('pointerdown', function (e) {
+      if (e.button === 2) return;
       var tx = e.target.closest && e.target.closest('[data-mid]');
-      if (tx) { mov = { id: tx.getAttribute('data-mid'), el: tx, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 }; svg.setPointerCapture(e.pointerId); return; }   // mover un texto
+      // los textos están bloqueados: solo el que se armó con «Mover» se puede arrastrar; el resto se comporta como el fondo (manita)
+      if (tx && armado && armado.el === tx) { mov = { id: tx.getAttribute('data-mid'), el: tx, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 }; svg.setPointerCapture(e.pointerId); return; }
+      if (armado) desarmar();
       arr = { x: e.clientX, y: e.clientY }; svg.setPointerCapture(e.pointerId); svg.style.cursor = 'grabbing';
     });
+    // clic derecho sobre un texto: menú Mover / Restablecer
+    svg.addEventListener('contextmenu', function (e) {
+      var tx = e.target.closest && e.target.closest('[data-mid]');
+      if (!tx) return;
+      e.preventDefault();
+      var id = tx.getAttribute('data-mid'), movido = !!(S.proy.duMov && S.proy.duMov[id]);
+      var mn = document.getElementById('menuTexto');
+      if (!mn) { mn = document.createElement('div'); mn.id = 'menuTexto'; mn.className = 'combo-lista'; document.body.appendChild(mn); }
+      mn.innerHTML = '<div class="combo-mas" style="padding:4px 8px"><b>' + esc(String(tx.textContent).slice(0, 38)) + '</b></div>' +
+        '<button type="button" class="combo-it" data-mt="mover">✥ Mover este texto</button>' +
+        (movido ? '<button type="button" class="combo-it" data-mt="reset">↺ Volver a su posición</button>' : '') +
+        '<button type="button" class="combo-it" data-mt="cancelar">Cancelar</button>';
+      mn.style.cssText = 'display:block;min-width:220px;left:' + Math.min(e.clientX, window.innerWidth - 240) + 'px;top:' + Math.min(e.clientY, window.innerHeight - 140) + 'px';
+      function cerrar() { mn.style.display = 'none'; document.removeEventListener('mousedown', fuera, true); }
+      function fuera(ev) { if (!mn.contains(ev.target)) cerrar(); }
+      mn.onclick = function (ev) {
+        var b = ev.target.closest('[data-mt]'); if (!b) return;
+        var a = b.getAttribute('data-mt'); cerrar();
+        if (a === 'mover') { desarmar(); armado = { id: id, el: tx }; tx.setAttribute('stroke', '#e91e63'); tx.setAttribute('stroke-width', '0.25'); tx.style.cursor = 'move'; toast('Arrastre el texto a su nueva posición (Esc cancela)'); }
+        else if (a === 'reset') { delete S.proy.duMov[id]; proyectoCambiado(); pintarLamina(); }
+      };
+      setTimeout(function () { document.addEventListener('mousedown', fuera, true); }, 0);
+    });
+    if (S.escMov) document.removeEventListener('keydown', S.escMov);
+    S.escMov = function (e) { if (e.key === 'Escape') desarmar(); };
+    document.addEventListener('keydown', S.escMov);
     svg.addEventListener('pointermove', function (e) {
       if (mov) {
         var rm = svg.getBoundingClientRect(), em = Math.max(v.w / rm.width, v.h / rm.height);
@@ -1482,7 +1512,7 @@
     function soltar() {
       arr = null; svg.style.cursor = 'grab';
       if (mov) {
-        var m = mov; mov = null;
+        var m = mov; mov = null; desarmar();      // al soltar, el texto vuelve a quedar bloqueado
         if (Math.abs(m.dx) + Math.abs(m.dy) > 0.2) {
           var MV = S.proy.duMov || (S.proy.duMov = {}), o = MV[m.id] || [0, 0];
           MV[m.id] = [o[0] + m.dx, o[1] - m.dy];      // en el dibujo Y crece hacia arriba
@@ -1578,7 +1608,7 @@
       '<button class="btn" data-act="lam-pdf-hojas">🖨 PDF en láminas con cajetín</button></div></div>';
     if (S.lam === 'matriz') h += editorMatriz();
     h += '<div class="card"><div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem"><h2 style="margin:0;flex:1">Vista previa</h2>' +
-      '<span class="muted" style="font-size:.85em">Rueda = zoom · arrastre = mover (✋) · doble clic = ajustar · arrastre un texto del diagrama para reubicarlo</span>' +
+      '<span class="muted" style="font-size:.85em">Rueda = zoom · arrastre = mover (✋) · doble clic = ajustar · clic derecho sobre un texto = «Mover»</span>' +
       '<button class="btn btn-sm" data-act="mov-reset" title="Devuelve los textos movidos a su posición original">Restablecer textos</button>' +
       '<button class="btn btn-sm" data-act="z-out" title="Alejar">−</button><span id="lamZoomTxt" style="min-width:3.2rem;text-align:center">100 %</span>' +
       '<button class="btn btn-sm" data-act="z-in" title="Acercar">＋</button><button class="btn btn-sm" data-act="z-fit" title="Ajustar a la ventana">Ajustar</button></div>' +

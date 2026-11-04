@@ -189,7 +189,7 @@
       else if (e.k === 'P') o.push('<' + (e.z ? 'polygon' : 'polyline') + ' points="' + e.p.map(function (q) { return q[0].toFixed(2) + ',' + (H - q[1]).toFixed(2); }).join(' ') + '" fill="' + (e.f ? c : 'none') + '" stroke="' + c + '"/>');
       else if (e.k === 'T') {
         var x = e.a[0], y = H - e.a[1];
-        o.push('<text' + (e.id ? ' data-mid="' + xml(e.id) + '" style="cursor:move"' : '') + ' x="' + x.toFixed(2) + '" y="' + y.toFixed(2) + '" font-size="' + (e.h / 0.72).toFixed(2) + '" fill="' + c + '" stroke="none" text-anchor="' + ({ l: 'start', c: 'middle', r: 'end' }[e.al]) + '"' +
+        o.push('<text' + (e.id ? ' data-mid="' + xml(e.id) + '" style="cursor:context-menu"' : '') + ' x="' + x.toFixed(2) + '" y="' + y.toFixed(2) + '" font-size="' + (e.h / 0.72).toFixed(2) + '" fill="' + c + '" stroke="none" text-anchor="' + ({ l: 'start', c: 'middle', r: 'end' }[e.al]) + '"' +
           (e.r ? ' transform="rotate(' + (-e.r) + ' ' + x.toFixed(2) + ' ' + y.toFixed(2) + ')"' : '') + '>' + xml(e.t) + '</text>');
       }
     });

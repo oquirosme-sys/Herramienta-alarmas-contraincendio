@@ -190,3 +190,5 @@ Nuevo tipo de lazo **Teléfono** (botón «+ Teléfono», nombre `TEL n`, cable 
 - Los **montantes** se dibujan solo entre su primera y su última conexión (sin «colas» que sobresalgan junto al codo de salida del equipo ni saltos falsos); se verificó que todos los extremos de montante tocan una línea de conexión.
 
 - **Ancho de texto calibrado**: las tablas, notas, leyenda y cableado calculan el ancho de cada línea con las métricas reales de Century Gothic (mayúsculas anchas) y un factor de ancho de 0.8 en los TEXT del DXF, con ≈ 14 % de margen; se verificó con las métricas de la fuente que ningún texto de las láminas DU, simbología y cálculos se sale de su caja.
+
+- **Textos del diagrama bloqueados**: en la vista previa ya no se arrastran por accidente. **Clic derecho** sobre un texto abre un menú con «✥ Mover este texto», «↺ Volver a su posición» (si fue movido) y «Cancelar»; al elegir «Mover» el texto se resalta, se arrastra a su nueva posición y al soltarlo vuelve a quedar bloqueado (Esc cancela). La posición se guarda en el proyecto y sale en DXF/PDF.
