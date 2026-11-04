@@ -1301,12 +1301,12 @@
       '<button class="btn" data-act="lam-dxf-hojas">⬇ DXF en láminas con cajetín</button>' +
       '<button class="btn" data-act="lam-pdf-hojas">🖨 PDF en láminas con cajetín</button></div></div>';
     if (S.lam === 'matriz') h += editorMatriz();
-    if (S.lam === 'du') h += editorNotasDU();
     h += '<div class="card"><div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem"><h2 style="margin:0;flex:1">Vista previa</h2>' +
       '<span class="muted" style="font-size:.85em">Rueda = zoom · arrastre = mover (✋) · doble clic = ajustar</span>' +
       '<button class="btn btn-sm" data-act="z-out" title="Alejar">−</button><span id="lamZoomTxt" style="min-width:3.2rem;text-align:center">100 %</span>' +
       '<button class="btn btn-sm" data-act="z-in" title="Acercar">＋</button><button class="btn btn-sm" data-act="z-fit" title="Ajustar a la ventana">Ajustar</button></div>' +
       '<div id="laminaVista" style="height:72vh;overflow:hidden;background:#fff;border:1px solid var(--line,#ccc);border-radius:6px;cursor:grab"></div></div>';
+    if (S.lam === 'du') h += editorNotasDU();   // las notas se editan debajo del diagrama
     vista.innerHTML = h;
     S.pintor = pintarLamina;
   }
