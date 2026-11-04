@@ -247,6 +247,37 @@
     if (sel && !porId(S.proy.caida.circuitos, sel)) h += '<option value="' + esc(sel) + '" selected>(lazo eliminado)</option>';
     return h + '<option value="__nuevo__">＋ Nuevo lazo…</option>';
   }
+  /* Lazos para una fila de la vista de nivel: los del equipo de la fila y, aparte, los lazos de OTROS equipos que están en este nivel
+   * (p. ej. el lazo de teléfonos del panel principal). Primero los del tipo que corresponde al dispositivo. */
+  function optsLazosNivel(eq, sel, nivel, d) {
+    var t = d ? Calc.tipoLazoDe(d) : null, vistos = {};
+    function ord(l) { return l.slice().sort(function (a, b) { return t ? ((b.tipo === t) - (a.tipo === t)) : 0; }); }
+    function op(c, conEq) {
+      vistos[c.id] = 1;
+      return '<option value="' + esc(c.id) + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.circuito) + (conEq ? ' · ' + esc(nombreEquipo(c.fuente)) : (c.nivel ? ' · ' + esc(c.nivel) : '')) + '</option>';
+    }
+    var propios = lazosDe(eq.id), otros = S.proy.caida.circuitos.filter(function (c) { return c.fuente !== eq.id && c.nivel === nivel; });
+    var h = '<option value="">— sin lazo —</option>' + ord(propios).map(function (c) { return op(c, false); }).join('');
+    if (otros.length) h += '<optgroup label="Lazos de otros equipos en este nivel">' + ord(otros).map(function (c) { return op(c, true); }).join('') + '</optgroup>';
+    var actual = sel && porId(S.proy.caida.circuitos, sel);
+    if (actual && !vistos[actual.id]) h += '<option value="' + esc(actual.id) + '" selected>' + esc(actual.circuito + ' · ' + nombreEquipo(actual.fuente)) + '</option>';
+    else if (sel && !actual) h += '<option value="' + esc(sel) + '" selected>(lazo eliminado)</option>';
+    return h + '<option value="__nuevo__">＋ Nuevo lazo…</option>';
+  }
+  /* En la vista de nivel: si se elige un lazo de otro equipo, la fila pasa a ese equipo (el lazo define de dónde sale el dispositivo) */
+  function reasignarPorLazo(el) {
+    var eq = equipo(el.dataset.eq), f = eq && porId(eq.filas, el.dataset.id), k = el.dataset.k;
+    var c = f && porId(S.proy.caida.circuitos, f[k]);
+    if (!c || c.fuente === eq.id) return;
+    var dest = porId(S.proy.paneles, c.fuente) || porId(S.proy.fuentes, c.fuente);
+    if (!dest) return;
+    eq.filas = eq.filas.filter(function (x) { return x !== f; });
+    var otroK = k === 'circ' ? 'circ2' : 'circ', oc = porId(S.proy.caida.circuitos, f[otroK]);
+    if (oc && oc.fuente !== dest.id) f[otroK] = '';
+    dest.filas.push(f);
+    proyectoCambiado(); renderVista();
+    toast('Dispositivo conectado a ' + dest.tag + ' (lazo ' + c.circuito + ')');
+  }
   function quitarLazos(eqId) {
     var ids = lazosDe(eqId).map(function (c) { return c.id; });
     S.proy.caida.circuitos = S.proy.caida.circuitos.filter(function (c) { return ids.indexOf(c.id) < 0; });
@@ -952,7 +983,7 @@
     } else if (e.key === 'Escape') { cerrarCombo(); t.blur(); }
   });
 
-  function filaHTML(ref, f, i) {
+  function filaHTML(ref, f, i, nivelVista) {
     var d = S.cx.disp[f.disp];
     var b = function (k, t) { return 'data-o="fila" data-eq="' + esc(ref) + '" data-id="' + esc(f.id) + '" data-k="' + k + '"' + (t ? ' data-t="' + t + '"' : ''); };
     return '<tr data-fila="' + esc(f.id) + '"><td class="idx">' + (i + 1) + '</td>' +
@@ -960,7 +991,7 @@
       '<td><input class="in w-xl" type="text" autocomplete="off" data-combo="1" data-eq="' + esc(ref) + '" data-id="' + esc(f.id) + '" data-label="' + esc(d ? etiquetaDisp(d) : '') + '" value="' + esc(d ? etiquetaDisp(d) : '') + '" placeholder="— escriba para buscar: modelo, tag, descripción, fabricante —" title="Escriba para filtrar (por ejemplo: jack, estrobo, 4098, CO)"></td>' +
       '<td class="calc" data-out="tag:' + f.id + '"></td>' +
       '<td><select class="in w-md" ' + b('zona') + '>' + optsNiveles(f.zona) + '</select></td>' +
-      '<td><select class="in w-md" ' + b('circ') + '>' + optsLazos(equipo(ref), f.circ) + '</select>' +
+      '<td><select class="in w-md" ' + b('circ') + '>' + (nivelVista ? optsLazosNivel(equipo(ref), f.circ, f.zona, d) : optsLazos(equipo(ref), f.circ)) + '</select>' +
       (d && Calc.tipoLazo2De(d) ? '<select class="in w-md" style="margin-top:.25rem" title="Este dispositivo se conecta también a un lazo de ' + esc(Calc.tipoLazo2De(d)) + (Calc.parNacVoceo(d) ? ' (o use un solo lazo NAC+Voceo)' : '') + '" ' + b('circ2') + '>' +
         optsLazos(equipo(ref), f.circ2, Calc.tipoLazo2De(d)).replace('— sin lazo —', '— ' + esc(etiquetaTipo(Calc.tipoLazo2De(d))) + ' —') + '</select>' : '') + '</td>' +
       '<td><input class="in w-xs" type="number" min="0" step="1" ' + b('cant', 'num') + ' value="' + fmtN(f.cant) + '" placeholder="10"></td>' +
@@ -1031,7 +1062,7 @@
       '<th class="num">Cant.</th><th class="num">I espera unit. (mA)</th><th class="num">I espera total (A)</th><th class="num">I alarma unit. (mA)</th><th class="num">I alarma total (A)</th><th>Observación</th><th></th><th></th></tr></thead><tbody>');
     filasN.forEach(function (x, n) {
       var opts = equipos.map(function (e) { return '<option value="' + esc(e.id) + '"' + (e.id === x.eq.id ? ' selected' : '') + '>' + esc(e.tag + (e.nivel ? ' · ' + e.nivel : '')) + '</option>'; }).join('');
-      var tr = filaHTML(x.ref, x.f, n).replace('</td>', '</td><td><select class="in w-md" data-nv="eq" data-id="' + esc(x.f.id) + '" title="Equipo del que sale este dispositivo">' + opts + '</select></td>');
+      var tr = filaHTML(x.ref, x.f, n, true).replace('</td>', '</td><td><select class="in w-md" data-nv="eq" data-id="' + esc(x.f.id) + '" title="Equipo del que sale este dispositivo">' + opts + '</select></td>');
       h.push(tr);
     });
     if (!filasN.length) h.push('<tr><td colspan="15" class="vacio">Todavía no hay dispositivos en este nivel. Elija el equipo y use «+ Fila en este nivel».</td></tr>');
@@ -1721,7 +1752,10 @@
     }
     if (!el.dataset || !el.dataset.k) return;
     if (el.dataset.o === 'fila' && (el.dataset.k === 'circ' || el.dataset.k === 'circ2') && el.value === '__nuevo__') { acciones['lazo-nuevo'](el); return; }
-    if (el.tagName === 'SELECT') aplicar(el);
+    if (el.tagName === 'SELECT') {
+      aplicar(el);
+      if (el.dataset.o === 'fila' && (el.dataset.k === 'circ' || el.dataset.k === 'circ2') && S.tab.indexOf('n:') === 0) reasignarPorLazo(el);
+    }
     var re = el.dataset.re;
     if (re === 'vista' || re === 'all') renderVista();
     if (re === 'tabs' || re === 'all') renderTabs();

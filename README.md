@@ -177,3 +177,4 @@ La lista de pestañas muestra **todos los niveles** en orden (no solo los que ti
 
 ### Lazo de teléfonos
 Nuevo tipo de lazo **Teléfono** (botón «+ Teléfono», nombre `TEL n`, cable 5220FL por defecto, capa `FA-TELEFONO` en azul según la especificación). El jack (`J`) y el teléfono de bomberos (`J-PH`) van a ese lazo (aviso si se asignan a otro tipo). Se dibuja en el diagrama con su montante y, cuando el proyecto tiene un lazo de teléfonos, la tabla de cableado incluye automáticamente «LAZO DE TELÉFONOS» con el cable elegido (`{TEL}`). La lista de tipos del Excel también lo incluye.
+- En la **vista de un nivel**, el selector de lazo de cada fila muestra los lazos del equipo de la fila y, aparte, los **lazos de otros equipos que están en ese nivel** (p. ej. el lazo de teléfonos del panel principal); al elegir uno, la fila pasa a ese equipo (el lazo define de dónde sale el dispositivo). Primero se listan los del tipo que corresponde al dispositivo.
