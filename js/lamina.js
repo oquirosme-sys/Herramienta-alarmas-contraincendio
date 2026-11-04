@@ -8,7 +8,7 @@
   var CAPAS = {
     'FA-MARCO': [7, '#111'], 'FA-TEXTO': [7, '#111'], 'FA-SIMBOLOS': [7, '#111'], 'FA-TABLA': [7, '#111'],
     'FA-SLC': [3, '#1b9e3a'], 'FA-NAC': [30, '#a0522d'], 'FA-IDNAC': [30, '#a0522d'], 'FA-VOCEO': [30, '#a0522d'], 'FA-NAC-VOCEO': [30, '#a0522d'],
-    'FA-24VDC': [7, '#111'], 'FA-IDC': [3, '#1b9e3a'], 'FA-RED': [150, '#6c8cff'], 'FA-TELEFONO': [5, '#1f3bd1'], 'FA-ENCABEZADO': [5, '#1f4e79'], 'FA-ALERTA': [1, '#c00000'], 'FA-TEXTO-BLANCO': [7, '#fff'], 'FA-CAJETIN': [7, '#111']
+    'FA-24VDC': [7, '#111'], 'FA-IDC': [3, '#1b9e3a'], 'FA-RED': [150, '#6c8cff'], 'FA-TELEFONO': [5, '#1f3bd1'], 'FA-ENCABEZADO': [5, '#1f4e79'], 'FA-ALERTA': [1, '#c00000'], 'FA-TEXTO-BLANCO': [7, '#fff'], 'FA-CAJETIN': [7, '#111'], 'FA-NIVEL': [8, '#777', 'DEMOLISHED']
   };
   var CAPA_DE_TIPO = { SLC: 'FA-SLC', NAC: 'FA-NAC', IDNAC: 'FA-IDNAC', VOCEO: 'FA-VOCEO', 'NAC+VOCEO': 'FA-NAC-VOCEO', '24VDC': 'FA-24VDC', IDC: 'FA-IDC', TEL: 'FA-TELEFONO' };
 
@@ -183,7 +183,7 @@
     function col(c) { return (CAPAS[c] || CAPAS['FA-TEXTO'])[1]; }
     d.e.forEach(function (e) {
       var c = col(e.c);
-      if (e.k === 'L') o.push('<line' + (e.w ? ' stroke-width="' + e.w + '"' : '') + ' x1="' + e.a[0].toFixed(2) + '" y1="' + (H - e.a[1]).toFixed(2) + '" x2="' + e.a[2].toFixed(2) + '" y2="' + (H - e.a[3]).toFixed(2) + '" stroke="' + c + '"/>');
+      if (e.k === 'L') o.push('<line' + (e.w ? ' stroke-width="' + Math.max(e.w, 0.15) + '"' : '') + ((CAPAS[e.c] || [])[2] ? ' stroke-dasharray="3 1.5"' : '') + ' x1="' + e.a[0].toFixed(2) + '" y1="' + (H - e.a[1]).toFixed(2) + '" x2="' + e.a[2].toFixed(2) + '" y2="' + (H - e.a[3]).toFixed(2) + '" stroke="' + c + '"/>');
       else if (e.k === 'C') o.push('<circle cx="' + e.a[0].toFixed(2) + '" cy="' + (H - e.a[1]).toFixed(2) + '" r="' + e.a[2].toFixed(2) + '" fill="none" stroke="' + c + '"/>');
       else if (e.k === 'P') o.push('<' + (e.z ? 'polygon' : 'polyline') + ' points="' + e.p.map(function (q) { return q[0].toFixed(2) + ',' + (H - q[1]).toFixed(2); }).join(' ') + '" fill="' + (e.f ? c : 'none') + '" stroke="' + c + '"/>');
       else if (e.k === 'T') {
@@ -208,9 +208,10 @@
     d.e.forEach(function (e) { capas[e.c] = 1; });
     g(0, 'SECTION'); g(2, 'HEADER'); g(9, '$ACADVER'); g(1, 'AC1009'); g(0, 'ENDSEC');
     g(0, 'SECTION'); g(2, 'TABLES');
-    g(0, 'TABLE'); g(2, 'LTYPE'); g(70, 1); g(0, 'LTYPE'); g(2, 'CONTINUOUS'); g(70, 0); g(3, 'Solid line'); g(72, 65); g(73, 0); g(40, 0); g(0, 'ENDTAB');
+    g(0, 'TABLE'); g(2, 'LTYPE'); g(70, 2); g(0, 'LTYPE'); g(2, 'CONTINUOUS'); g(70, 0); g(3, 'Solid line'); g(72, 65); g(73, 0); g(40, 0);
+    g(0, 'LTYPE'); g(2, 'DEMOLISHED'); g(70, 0); g(3, 'Demolished'); g(72, 65); g(73, 2); g(40, 4.5); g(49, 3); g(49, -1.5); g(0, 'ENDTAB');
     g(0, 'TABLE'); g(2, 'LAYER'); g(70, Object.keys(capas).length);
-    Object.keys(capas).forEach(function (c) { g(0, 'LAYER'); g(2, c); g(70, 0); g(62, (CAPAS[c] || CAPAS['FA-TEXTO'])[0]); g(6, 'CONTINUOUS'); });
+    Object.keys(capas).forEach(function (c) { g(0, 'LAYER'); g(2, c); g(70, 0); g(62, (CAPAS[c] || CAPAS['FA-TEXTO'])[0]); g(6, (CAPAS[c] || [])[2] || 'CONTINUOUS'); });
     g(0, 'ENDTAB');
     g(0, 'TABLE'); g(2, 'STYLE'); g(70, 2); g(0, 'STYLE'); g(2, 'STANDARD'); g(70, 0); g(40, 0); g(41, 1); g(50, 0); g(71, 0); g(42, 2.5); g(3, 'txt'); g(4, '');
     g(0, 'STYLE'); g(2, 'CENTURY'); g(70, 0); g(40, 0); g(41, 1); g(50, 0); g(71, 0); g(42, 2.5); g(3, 'GOTHIC.TTF'); g(4, ''); g(0, 'ENDTAB');
@@ -555,7 +556,7 @@
     d.cortes = yb.slice();                       // la lámina puede cortarse en los separadores de nivel
     // separadores y nombres de nivel
     niveles.forEach(function (n, i) {
-      d.L(x0 + 215 - 10, yb[i], xEnd, yb[i], 'FA-TABLA');
+      d.L(x0 + 215 - 10, yb[i], xEnd, yb[i], 'FA-NIVEL', 0.01);   // separador de nivel: línea DEMOLISHED de 0.01 mm
       d.T(xEnd, yb[i] + 3, String(n), 5, 'FA-TEXTO', 'r', 0, 'nv:' + n);
     });
 
@@ -1131,7 +1132,7 @@
       function X(x) { return AREA.x0 + x * esc; }
       function Y(y) { return AREA.y1 - (ya - y) * esc; }
       d.e.forEach(function (e) {
-        if (e.k === 'L') { var s = recorta(e.a[0], e.a[1], e.a[2], e.a[3], ya, yb); if (s) h.L(X(s[0]), Y(s[1]), X(s[2]), Y(s[3]), e.c); }
+        if (e.k === 'L') { var s = recorta(e.a[0], e.a[1], e.a[2], e.a[3], ya, yb); if (s) h.L(X(s[0]), Y(s[1]), X(s[2]), Y(s[3]), e.c, e.w); }
         else if (e.k === 'C') { if (e.a[1] <= ya && e.a[1] > yb) h.C(X(e.a[0]), Y(e.a[1]), e.a[2] * esc, e.c); }
         else if (e.k === 'T') { if (e.a[1] <= ya && e.a[1] > yb) h.T(X(e.a[0]), Y(e.a[1]), e.t, Math.max(2, e.h * esc), e.c, e.al, e.r); }
         else if (e.k === 'P') {
