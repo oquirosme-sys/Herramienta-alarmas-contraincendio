@@ -424,8 +424,14 @@
         (sub ? ' <span class="sec-sub">' + esc(sub) + '</span>' : '') + '</button>');
     }
     tab('proyecto', 'Proyecto');
-    if (P.paneles.length) h.push('<span class="seccion-sep"></span>');
-    P.paneles.forEach(function (p) { tab('p:' + p.id, p.tag || '(sin TAG)', p.nivel, estadoEquipo(Calc.panel(S.cx, p, P), p)); });
+    h.push('<span class="seccion-sep"></span>');
+    var yaTab = {};
+    P.niveles.forEach(function (n) {
+      var ps = P.paneles.filter(function (p) { return p.nivel === n; });
+      if (ps.length) ps.forEach(function (p) { yaTab[p.id] = 1; tab('p:' + p.id, p.tag || '(sin TAG)', p.nivel, estadoEquipo(Calc.panel(S.cx, p, P), p)); });
+      else tab('n:' + n, n, 'sin panel', dispositivosEnNivel(n).length ? 'ok' : 'pend');      // el nivel existe aunque solo lleve sensores o dispositivos
+    });
+    P.paneles.filter(function (p) { return !yaTab[p.id]; }).forEach(function (p) { tab('p:' + p.id, p.tag || '(sin TAG)', p.nivel, estadoEquipo(Calc.panel(S.cx, p, P), p)); });
     h.push('<button class="seccion mas" data-act="nivel-nuevo" title="Agregar un nivel con su panel/transponder">+ Nivel</button>');
     if (P.fuentes.length) h.push('<span class="seccion-sep"></span>');
     P.fuentes.forEach(function (f) { tab('f:' + f.id, f.tag || '(sin TAG)', esAmp(f) ? 'amplificador' : 'fuente aux.', estadoEquipo(Calc.fuente(S.cx, f, P), f)); });
@@ -470,8 +476,10 @@
     var t = S.tab;
     if (t === 'admin' && !Auth.esAdmin()) t = S.tab = 'proyecto';
     if ((t.indexOf('p:') === 0 || t.indexOf('f:') === 0) && !equipo(t)) t = S.tab = 'proyecto';
+    if (t.indexOf('n:') === 0 && S.proy.niveles.indexOf(t.slice(2)) < 0) t = S.tab = 'proyecto';
     if (t === 'proyecto') vistaProyecto();
     else if (t.indexOf('p:') === 0 || t.indexOf('f:') === 0) vistaEquipo(t);
+    else if (t.indexOf('n:') === 0 && S.proy.niveles.indexOf(t.slice(2)) >= 0) vistaNivel(t.slice(2));
     else if (t === 'caida') vistaCaida();
     else if (t === 'memoria') vistaMemoria();
     else if (t === 'laminas') vistaLaminas();
@@ -994,6 +1002,35 @@
   }
 
   /* ======================= vista: Caída de tensión ======================= */
+  /* ======================= vista: Nivel sin panel ======================= */
+  function dispositivosEnNivel(nombre) {
+    var l = [];
+    S.proy.paneles.concat(S.proy.fuentes).forEach(function (eq) {
+      (eq.filas || []).forEach(function (f) { if (f.zona === nombre && (f.disp || Calc.num(f.cant) !== null)) l.push({ eq: eq, f: f }); });
+    });
+    return l;
+  }
+  function vistaNivel(nombre) {
+    var P = S.proy, lista = dispositivosEnNivel(nombre), h = [];
+    h.push('<div class="encabezado"><div><h2>' + esc(nombre) + ' <span class="sec-sub">sin panel ni transponder</span></h2>' +
+      '<div class="sub">Este nivel forma parte del proyecto y aparece en el diagrama unifilar aunque solo lleve sensores o dispositivos. Sus dispositivos se conectan a lazos de otro panel, transponder o fuente: agréguelos al equipo al que pertenecen, con este nivel, o cree aquí un transponder.</div></div>' +
+      '<div class="acciones"><button class="btn" data-act="ir" data-tab="proyecto">← Proyecto</button></div></div>');
+    h.push('<section class="card"><div class="card-h"><h3>Dispositivos de este nivel</h3><span class="nota">Se editan en la pestaña del equipo al que están conectados.</span></div>' +
+      '<div class="card-b flush tabla-wrap"><table class="t"><thead><tr><th>Equipo</th><th>Modelo / descripción</th><th>TAG</th><th>Lazo / salida</th><th class="num">Cant.</th><th></th></tr></thead><tbody>' +
+      (lista.length ? lista.map(function (x) {
+        var d = S.cx.disp[x.f.disp], c = porId(P.caida.circuitos, x.f.circ), ref = (porId(P.paneles, x.eq.id) ? 'p:' : 'f:') + x.eq.id;
+        return '<tr><td>' + esc(x.eq.tag) + '</td><td>' + esc(d ? etiquetaDisp(d) : '— sin modelo —') + '</td><td>' + esc(d ? d.tag : '') + '</td><td>' + esc(c ? c.circuito : '—') + '</td>' +
+          '<td class="num">' + fmt(Calc.num(x.f.cant), 0) + '</td><td><button class="btn btn-sm" data-act="ir" data-tab="' + esc(ref) + '">Abrir →</button></td></tr>';
+      }).join('') : '<tr><td colspan="6" class="vacio">Todavía no hay dispositivos en este nivel. Agregue una fila a un equipo con este nivel, o cree un transponder aquí.</td></tr>') +
+      '</tbody></table></div>' +
+      '<div class="card-b" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; border-top:1px solid var(--border)">' +
+      '<label class="campo" style="margin:0"><span>Agregar dispositivo en este nivel a</span><select id="selNivelEq" class="in">' +
+      P.paneles.concat(P.fuentes).map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.tag + (e.nivel ? ' · ' + e.nivel : '')) + '</option>'; }).join('') + '</select></label>' +
+      '<button class="btn primary btn-sm" data-act="nivel-fila" data-nivel="' + esc(nombre) + '">+ Fila en este nivel</button>' +
+      '<button class="btn btn-sm" data-act="nivel-trp" data-nivel="' + esc(nombre) + '">Crear transponder en este nivel</button></div></section>');
+    vista.innerHTML = h.join('');
+  }
+
   function vistaCaida() {
     var P = S.proy, cd = P.caida, pp = P.params;
     var Bp = function (k, t) { return { o: 'params', k: k, t: t }; };
@@ -1679,6 +1716,21 @@
     ir: function (b) { irA(b.dataset.tab); },
     imprimir: function () { window.print(); },
 
+    'nivel-fila': function (b) {
+      var sel = document.getElementById('selNivelEq'), eq = sel && (porId(S.proy.paneles, sel.value) || porId(S.proy.fuentes, sel.value));
+      if (!eq) { toast('Primero cree un panel o transponder'); return; }
+      var ult = eq.filas[eq.filas.length - 1];
+      eq.filas.push(nuevaFila(ult ? ult.fab : S.proy.fabricante, b.dataset.nivel, ''));
+      proyectoCambiado();
+      irA((porId(S.proy.paneles, eq.id) ? 'p:' : 'f:') + eq.id);
+      toast('Fila agregada a ' + eq.tag + ' en ' + b.dataset.nivel + ': elija el modelo y el lazo');
+    },
+    'nivel-trp': function (b) {
+      var pn = crearNivel(b.dataset.nivel, 'TRP');
+      proyectoCambiado();
+      irA(pn ? 'p:' + pn.id : 'proyecto');
+      if (pn) toast('Transponder ' + pn.tag + ' creado en ' + b.dataset.nivel);
+    },
     'nivel-nuevo': function () {
       var P = S.proy;
       dialogo({
