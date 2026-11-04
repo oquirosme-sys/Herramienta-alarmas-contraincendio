@@ -1149,9 +1149,41 @@
     document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
   }
+  /* Vista previa con zoom (rueda y botones), manita para desplazar (arrastrar) y «ajustar» (doble clic) */
   function pintarLamina() {
     var el = document.getElementById('laminaVista');
-    if (el) el.innerHTML = Lamina.aSVG(Lamina.lamina(S.lam, ctxLamina()));
+    if (!el) return;
+    var d = Lamina.lamina(S.lam, ctxLamina());
+    el.innerHTML = Lamina.aSVG(d);
+    var svg = el.querySelector('svg');
+    svg.removeAttribute('style');
+    svg.style.cssText = 'width:100%;height:100%;display:block;background:#fff;touch-action:none;user-select:none;cursor:grab';
+    var full = { x: 0, y: 0, w: d.w, h: d.h }, ant = S.lamView;
+    var v = ant && ant.id === S.lam && ant.full.w === full.w && ant.full.h === full.h ? ant.v : { x: 0, y: 0, w: d.w, h: d.h };
+    S.lamView = { id: S.lam, full: full, v: v };
+    function ver() { svg.setAttribute('viewBox', v.x + ' ' + v.y + ' ' + v.w + ' ' + v.h); var z = document.getElementById('lamZoomTxt'); if (z) z.textContent = Math.round(Math.max(full.w / v.w, full.h / v.h) * 100) + ' %'; }
+    function aPunto(cx, cy) { var pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy; var m = svg.getScreenCTM(); return m ? pt.matrixTransform(m.inverse()) : { x: v.x + v.w / 2, y: v.y + v.h / 2 }; }
+    function zoom(f, p) {
+      var nw = Math.min(Math.max(v.w / f, full.w / 60), full.w * 4), k = nw / v.w;
+      p = p || { x: v.x + v.w / 2, y: v.y + v.h / 2 };
+      v.x = p.x - (p.x - v.x) * k; v.y = p.y - (p.y - v.y) * k; v.h = v.h * k; v.w = nw; ver();
+    }
+    function ajustar() { v.x = 0; v.y = 0; v.w = full.w; v.h = full.h; ver(); }
+    S.lamZoom = zoom; S.lamAjustar = ajustar;
+    ver();
+    svg.addEventListener('wheel', function (e) { e.preventDefault(); zoom(e.deltaY < 0 ? 1.18 : 1 / 1.18, aPunto(e.clientX, e.clientY)); }, { passive: false });
+    var arr = null;
+    svg.addEventListener('pointerdown', function (e) {
+      arr = { x: e.clientX, y: e.clientY }; svg.setPointerCapture(e.pointerId); svg.style.cursor = 'grabbing';
+    });
+    svg.addEventListener('pointermove', function (e) {
+      if (!arr) return;
+      var r = svg.getBoundingClientRect(), esc = Math.max(v.w / r.width, v.h / r.height);
+      v.x -= (e.clientX - arr.x) * esc; v.y -= (e.clientY - arr.y) * esc; arr = { x: e.clientX, y: e.clientY }; ver();
+    });
+    function soltar() { arr = null; svg.style.cursor = 'grab'; }
+    svg.addEventListener('pointerup', soltar); svg.addEventListener('pointercancel', soltar);
+    svg.addEventListener('dblclick', ajustar);
   }
   function editorMatriz() {
     var M = matrizProy();
@@ -1197,7 +1229,11 @@
       '<button class="btn" data-act="lam-dxf-hojas">⬇ DXF en láminas con cajetín</button>' +
       '<button class="btn" data-act="lam-pdf-hojas">🖨 PDF en láminas con cajetín</button></div></div>';
     if (S.lam === 'matriz') h += editorMatriz();
-    h += '<div class="card"><h2>Vista previa</h2><div id="laminaVista" style="overflow:auto;background:#fff;border:1px solid var(--line,#ccc);border-radius:6px;padding:.5rem"></div></div>';
+    h += '<div class="card"><div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem"><h2 style="margin:0;flex:1">Vista previa</h2>' +
+      '<span class="muted" style="font-size:.85em">Rueda = zoom · arrastre = mover (✋) · doble clic = ajustar</span>' +
+      '<button class="btn btn-sm" data-act="z-out" title="Alejar">−</button><span id="lamZoomTxt" style="min-width:3.2rem;text-align:center">100 %</span>' +
+      '<button class="btn btn-sm" data-act="z-in" title="Acercar">＋</button><button class="btn btn-sm" data-act="z-fit" title="Ajustar a la ventana">Ajustar</button></div>' +
+      '<div id="laminaVista" style="height:72vh;overflow:hidden;background:#fff;border:1px solid var(--line,#ccc);border-radius:6px;cursor:grab"></div></div>';
     vista.innerHTML = h;
     S.pintor = pintarLamina;
   }
@@ -1636,7 +1672,10 @@
 
 
     /* ----- láminas ----- */
-    'lam-sel': function (b) { S.lam = b.dataset.id; renderVista(); },
+    'lam-sel': function (b) { S.lam = b.dataset.id; S.lamView = null; renderVista(); },
+    'z-in': function () { if (S.lamZoom) S.lamZoom(1.3); },
+    'z-out': function () { if (S.lamZoom) S.lamZoom(1 / 1.3); },
+    'z-fit': function () { if (S.lamAjustar) S.lamAjustar(); },
     'lam-dxf': function () { descargarDXF(S.lam || 'du'); toast('DXF generado'); },
     'lam-dxf-hojas': function () { descargarDXF(S.lam || 'du', true); toast('DXF en láminas 1100 × 750 generado'); },
     'lam-pdf-hojas': function () {
