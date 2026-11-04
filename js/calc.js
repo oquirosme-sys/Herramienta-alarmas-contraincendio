@@ -145,9 +145,9 @@
   function duenoCarga(d, f, circs, alims) {
     var c = d ? lazoCorriente(d, f, circs) : null;
     if (!c) return null;
-    var e = (c.alim && alims[c.alim]) || alims[c.fuente] || null;
-    if (!e) return null;
-    if (e.tipo === 'AMP' && !(d.circuito === 'VOCEO')) return null;
+    if (c.alim && alims[c.alim]) return alims[c.alim];            // asignación explícita: se cargan todos los dispositivos del lazo
+    var e = alims[c.fuente] || null;                              // por defecto, el equipo dueño del lazo (a un amplificador solo van los de voceo)
+    if (e && e.tipo === 'AMP' && d.circuito !== 'VOCEO') return null;
     return e;
   }
 

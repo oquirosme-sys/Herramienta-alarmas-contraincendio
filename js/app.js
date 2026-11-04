@@ -213,12 +213,20 @@
   /* «Alimentado por»: fuente auxiliar o amplificador que carga con la corriente de los dispositivos del lazo */
   var TIPOS_ALIM = /^(VOCEO|NAC\+VOCEO|NAC|IDNAC|24VDC)$/;
   function optsAlim(c, sel) {
-    var t = c.tipo, lista = S.proy.fuentes.filter(function (f) {
-      var amp = f.tipo === 'AMP';
-      return t === 'VOCEO' ? amp : (t === 'NAC+VOCEO' ? true : !amp);
-    });
-    var vacio = t === 'VOCEO' ? '— sin amplificador —' : '— el propio equipo —';
-    return opts(lista.map(function (f) { return { v: f.id, l: f.tag + (f.nivel ? ' · ' + f.nivel : '') }; }), sel, vacio);
+    // se pueden elegir amplificadores y fuentes auxiliares para cualquier lazo; primero los que corresponden al tipo
+    var t = c.tipo, fu = S.proy.fuentes, amps = fu.filter(function (f) { return f.tipo === 'AMP'; }), rps = fu.filter(function (f) { return f.tipo !== 'AMP'; });
+    var vacio = t === 'VOCEO' ? '— sin amplificador —' : '— el propio equipo —', ok = false;
+    function grupo(lista, nombre) {
+      if (!lista.length) return '';
+      return '<optgroup label="' + nombre + '">' + lista.map(function (f) {
+        if (f.id === sel) ok = true;
+        return '<option value="' + esc(f.id) + '"' + (f.id === sel ? ' selected' : '') + '>' + esc(f.tag + (f.nivel ? ' · ' + f.nivel : '')) + '</option>';
+      }).join('') + '</optgroup>';
+    }
+    var h = '<option value="">' + vacio + '</option>';
+    h += /VOCEO/.test(t) ? grupo(amps, 'Amplificadores') + grupo(rps, 'Fuentes auxiliares') : grupo(rps, 'Fuentes auxiliares') + grupo(amps, 'Amplificadores');
+    if (sel && !ok) h += '<option value="' + esc(sel) + '" selected>(equipo eliminado)</option>';
+    return h;
   }
   function celdaClase(c) {
     if (c.tipo === '24VDC') return '<td class="muted" style="text-align:center">—</td>';
