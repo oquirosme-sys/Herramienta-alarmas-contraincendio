@@ -7,8 +7,8 @@
   /* ---------- capas (nombre → color AutoCAD / color en pantalla) ---------- */
   var CAPAS = {
     'FA-MARCO': [7, '#111'], 'FA-TEXTO': [7, '#111'], 'FA-SIMBOLOS': [7, '#111'], 'FA-TABLA': [7, '#111'],
-    'FA-SLC': [3, '#1b9e3a'], 'FA-NAC': [30, '#a0522d'], 'FA-IDNAC': [6, '#a02c8f'], 'FA-VOCEO': [5, '#1f3bd1'], 'FA-NAC-VOCEO': [20, '#c2410c'],
-    'FA-24VDC': [1, '#d11f1f'], 'FA-IDC': [4, '#0a9fb0'], 'FA-ENCABEZADO': [5, '#1f4e79'], 'FA-ALERTA': [1, '#c00000'], 'FA-TEXTO-BLANCO': [7, '#fff'], 'FA-CAJETIN': [7, '#111']
+    'FA-SLC': [3, '#1b9e3a'], 'FA-NAC': [30, '#a0522d'], 'FA-IDNAC': [30, '#a0522d'], 'FA-VOCEO': [30, '#a0522d'], 'FA-NAC-VOCEO': [30, '#a0522d'],
+    'FA-24VDC': [7, '#111'], 'FA-IDC': [3, '#1b9e3a'], 'FA-RED': [150, '#6c8cff'], 'FA-TELEFONO': [5, '#1f3bd1'], 'FA-ENCABEZADO': [5, '#1f4e79'], 'FA-ALERTA': [1, '#c00000'], 'FA-TEXTO-BLANCO': [7, '#fff'], 'FA-CAJETIN': [7, '#111']
   };
   var CAPA_DE_TIPO = { SLC: 'FA-SLC', NAC: 'FA-NAC', IDNAC: 'FA-IDNAC', VOCEO: 'FA-VOCEO', 'NAC+VOCEO': 'FA-NAC-VOCEO', '24VDC': 'FA-24VDC', IDC: 'FA-IDC' };
 
@@ -338,6 +338,13 @@
         f('SISTEMAS AUDIOVISUALES (MÚSICA DEL HOTEL Y SISTEMA DE REGULACIÓN DE LA ILUMINACIÓN)', 'i'),
         f('MODO DE PRUEBA ACELERADA DE MONÓXIDO DE CARBONO (CO)', 'i')
       ],
+      cab: [
+        { id: 'nc1', on: true, capa: 'FA-SLC', txt: 'LAZO DE INICIACIÓN. 2x16 AWG SÓLIDO, SIN PANTALLA, ESPECIFICACIÓN NEC/UL=FPLR, FORRO COLOR ROJO, 300V, IGUAL O SUPERIOR A REFERENCIA, EN TUBERÍA EMT LISTADA UL, O EL INDICADO EN DIAGRAMA UNIFILAR. CABLE CONTRA HUMEDAD EN EXTERIORES VER REFERENCIA. IGUAL O SUPERIOR A REFERENCIA:\nSLC= {SLC}\nIDC= {IDC}\nEXTERIORES= WEST PENN AQ225' },
+        { id: 'nc2', on: true, capa: 'FA-NAC', txt: 'LAZO DE NOTIFICACIÓN Y VOCEO. CIRCUITO DE NOTIFICACIÓN, 2x16 AWG SÓLIDO (SOLO NAC), 2x2x16 AWG SÓLIDO (NAC+VOCEO), NAC=SIN PANTALLA, VOCEO=CON PANTALLA, ESPECIFICACIÓN NEC/UL=FPLR, FORRO COLOR ROJO, 300V, EN TUBERÍA EMT LISTADA UL O EL INDICADO EN DIAGRAMA UNIFILAR. CABLE CONTRA HUMEDAD EN EXTERIORES VER REFERENCIA. IGUAL O SUPERIOR A REFERENCIA:\nNAC= {NAC}\nVOCEO= {VOCEO}\nEXTERIORES= WEST PENN AQ225' },
+        { id: 'nc3', on: true, capa: 'FA-24VDC', txt: 'CIRCUITO DE 24VDC PERMANENTES, 2x16 AWG SÓLIDO, SIN PANTALLA, ESPECIFICACIÓN NEC/UL=FPLR, FORRO COLOR ROJO, 300V, IGUAL O SUPERIOR A REFERENCIA, EN TUBERÍA EMT LISTADA UL (VER TABLA CANALIZACIONES). O EL INDICADO EN DIAGRAMA UNIFILAR. CABLE CONTRA HUMEDAD EN EXTERIORES VER REFERENCIA. IGUAL O SUPERIOR A REFERENCIA:\n24VDC= {24VDC}\nEXTERIORES= WEST PENN AQ225' },
+        { id: 'nc4', on: false, capa: 'FA-TELEFONO', txt: 'LAZO DE TELÉFONOS' },
+        { id: 'nc5', on: false, capa: 'FA-RED', txt: 'CIRCUITO DE RED O COMUNICACIÓN, 4x16 AWG SÓLIDO, CON PANTALLA, ESPECIFICACIÓN NEC/UL=FPLR, FORRO COLOR ROJO, IGUAL O SUPERIOR A REFERENCIA, EN TUBERÍA EMT LISTADA UL (VER TABLA CANALIZACIONES), UN PAR PARA DATOS, UN PAR PARA AUDIO. O EL INDICADO EN DIAGRAMA UNIFILAR. CABLE CONTRA HUMEDAD EN EXTERIORES VER REFERENCIA. IGUAL O SUPERIOR A REFERENCIA:\nRED COBRE= {SLC}\nRED FO= VER PLANOS DE ITS\nEXTERIORES= WEST PENN AQ225' }
+      ],
       gen: [
         g('Panel con circuito dedicado 120 VAC/20 A mediante interruptor aprobado con opción de bloqueo, de acuerdo con NFPA 72 §10.6.5.4.'),
         g('Baterías con capacidad para {tEspera} h en espera y {tAlarma} min en alarma (NFPA 72 §10.6.7.2.1.2); prever espacio para ampliación no menor de 20 %.'),
@@ -356,13 +363,18 @@
     var equipos = P.paneles.concat(P.fuentes);
     var ORD = ['SLC', 'IDC', 'NAC', 'NAC+VOCEO', 'IDNAC', 'VOCEO', '24VDC'];
     var NO = (P.notasDU && P.notasDU.facp && P.notasDU.gen) ? P.notasDU : notasDUBase();
+    if (!NO.cab) NO = Object.assign({}, NO, { cab: notasDUBase().cab });
     var notasF = NO.facp.filter(function (x) { return x.on; });
     var MARG = notasF.length ? 190 : 0, xL = x0;
     x0 += MARG;
     var pr0 = P.params || {}, tE = Calc.num(pr0.tEspera) || 24, tA = Calc.num(pr0.tAlarma) || 15;
     var facp0 = P.paneles[0], dFacp = facp0 && (facp0.filas || []).map(function (f) { return cx.disp[f.disp]; }).filter(function (q) { return q && q.tag === 'FACP'; })[0];
     var facpRef = dFacp ? ((cx.fabricantes[dFacp.fabricante] || {}).nombre || '') + ' ' + dFacp.modelo : ((cx.fabricantes && cx.fabricantes[P.fabricante]) ? cx.fabricantes[P.fabricante].nombre : '');
-    function sust(t) { return String(t || '').replace(/\{tEspera\}/g, tE).replace(/\{tAlarma\}/g, tA).replace(/\{facpRef\}/g, facpRef.trim()); }
+    function cabDe(tipo) {
+      var c = P.caida.circuitos.filter(function (z) { return z.tipo === tipo && z.cable && cx.cables[z.cable]; })[0], cab = c ? cx.cables[c.cable] : null;
+      return cab ? (cab.fabricante + ' ' + cab.modelo).toUpperCase() : (tipo === 'VOCEO' ? 'BELDEN 5220FL' : 'BELDEN 5220UL');
+    }
+    function sust(t) { return String(t || '').replace(/\{(SLC|IDC|NAC|VOCEO|NAC\+VOCEO|24VDC)\}/g, function (m, t1) { return cabDe(t1); }).replace(/\{tEspera\}/g, tE).replace(/\{tAlarma\}/g, tA).replace(/\{facpRef\}/g, facpRef.trim()); }
     var ROW = 27, PAD = 16, ESC = 1.35, PASO = 24;
     var circs = {}, res = {};
     P.caida.circuitos.forEach(function (c, i) { circs[c.id] = c; res[c.id] = cd.circuitos[i]; });
@@ -424,8 +436,8 @@
       return equipos.indexOf(eqDe(A[0])) - equipos.indexOf(eqDe(B[0])) || ORD.indexOf(A[1]) - ORD.indexOf(B[1]);
     });
     var xR0 = x0 + 215, xR = {};
-    llaves.forEach(function (k, i) { xR[k] = xR0 + i * 8; });
-    var xChain = xR0 + Math.max(1, llaves.length) * 8 + 52;
+    llaves.forEach(function (k, i) { xR[k] = xR0 + i * 11; });
+    var xChain = xR0 + Math.max(1, llaves.length) * 11 + 52;
 
     var maxCad = 5;
     Object.keys(filas).forEach(function (n) { filas[n].forEach(function (f) { maxCad = Math.max(maxCad, f.g.length); }); });
@@ -472,25 +484,84 @@
     d.T(fx + fw / 2, fy + 8, (facp ? facp.tag : 'FACP') + ' · ' + ((cx.fabricantes && cx.fabricantes[P.fabricante]) ? cx.fabricantes[P.fabricante].nombre : ''), 2.8, 'FA-TEXTO', 'c');
     if (facp) stubs[facp.id] = { x: fx + fw, y: fy + fh - 8, n: 0, paso: 6 };
 
-    // origen de cada montante (salida del equipo) y extremos verticales
-    var yIni = {}, yMin = {}, yMax = {};
-    llaves.forEach(function (k) {
-      var st = stubs[k.split('|')[0]] || { x: fx + fw, y: fy + fh - 8, n: 0 }, y0 = st.y - st.n * (st.paso || 4);
-      st.n++;
-      yIni[k] = y0; yMin[k] = y0; yMax[k] = y0;
-      d.L(st.x, y0, xR[k], y0, CAPA_DE_TIPO[k.split('|')[1]]);
+    /* ---- orden de los montantes con el menor número de cruces ----
+     * Un renglón cruza los montantes que están a su derecha y cubren su altura; la salida de un equipo cruza los que están a su izquierda. */
+    var rowsList = [];
+    niveles.forEach(function (n, i) {
+      filas[n].forEach(function (f, k) {
+        if (!f.c) return;
+        var key = origen(f.c) + '|' + f.c.tipo, y = yFila(i, k);
+        rowsList.push({ key: key, y: y });
+        if (f.c.clase === 'A' && f.tipo !== '24VDC') rowsList.push({ key: key, y: y - 12.6 });
+      });
     });
+    function y0s(orden) {
+      var cnt = {}, r = {};
+      orden.forEach(function (k) {
+        var id = k.split('|')[0], st = stubs[id] || { x: fx + fw, y: fy + fh - 8, paso: 6 }, n = cnt[id] || 0;
+        r[k] = st.y - n * (st.paso || 4); cnt[id] = n + 1;
+      });
+      return r;
+    }
+    function spans(orden) {
+      var y0 = y0s(orden), sp = {};
+      orden.forEach(function (k) { sp[k] = { y0: y0[k], min: y0[k] - 2.4, max: y0[k] }; });
+      rowsList.forEach(function (r) { var s = sp[r.key]; if (s) { s.min = Math.min(s.min, r.y); s.max = Math.max(s.max, r.y); } });
+      return sp;
+    }
+    function costo(orden) {
+      var sp = spans(orden), pos = {}, c = 0;
+      orden.forEach(function (k, i) { pos[k] = i; });
+      rowsList.forEach(function (r) {
+        orden.forEach(function (k2) { if (k2 !== r.key && pos[k2] > pos[r.key] && sp[k2].min < r.y && r.y < sp[k2].max) c++; });
+      });
+      orden.forEach(function (k) {
+        orden.forEach(function (k2) { if (k2 !== k && pos[k2] < pos[k] && sp[k2].min < sp[k].y0 && sp[k].y0 < sp[k2].max) c++; });
+      });
+      return c;
+    }
+    var mejorC = costo(llaves);
+    for (var it = 0; it < 60; it++) {
+      var mejora = false;
+      for (var q = 0; q + 1 < llaves.length; q++) {
+        var cand = llaves.slice(); var tmp = cand[q]; cand[q] = cand[q + 1]; cand[q + 1] = tmp;
+        var cc = costo(cand);
+        if (cc < mejorC) { llaves = cand; mejorC = cc; mejora = true; }
+      }
+      if (!mejora) break;
+    }
+    llaves.forEach(function (k, i) { xR[k] = xR0 + i * 11; });
+    var info = spans(llaves);
+
+    // línea horizontal que salta (con un arco) los montantes que cruza
+    function hLinea(xa, xb, y, capa, kk) {
+      var cr = llaves.filter(function (k2) { return k2 !== kk && xR[k2] > xa + 2.5 && xR[k2] < xb - 2.5 && info[k2].min < y - 0.01 && info[k2].max > y + 0.01; })
+        .map(function (k2) { return xR[k2]; }).sort(function (a, b) { return a - b; });
+      var x = xa, R = 1.5;
+      cr.forEach(function (cxx) {
+        d.L(x, y, cxx - R, y, capa);
+        var pts = [];
+        for (var t = 0; t <= 6; t++) { var a = Math.PI - Math.PI * t / 6; pts.push([cxx + R * Math.cos(a), y + R * Math.sin(a)]); }
+        d.P(pts, false, capa); x = cxx + R;
+      });
+      d.L(x, y, xb, y, capa);
+    }
+
+    // salida de cada montante desde su equipo
+    llaves.forEach(function (k) {
+      var st = stubs[k.split('|')[0]] || { x: fx + fw, y: fy + fh - 8 }, capa = CAPA_DE_TIPO[k.split('|')[1]];
+      hLinea(st.x, xR[k], info[k].y0, capa, k);
+    });
+    var claseA = {};   // montantes que llevan lazos clase A: tienen además su montante de retorno
 
     /* ---- renglones de lazo ---- */
     niveles.forEach(function (n, i) {
       filas[n].forEach(function (f, k) {
         var y = yFila(i, k), c = f.c, capa = CAPA_DE_TIPO[f.tipo] || 'FA-SLC', key = c ? origen(c) + '|' + c.tipo : null;
-        var xs = key ? xR[key] : xChain - 30;
-        if (key) { yMin[key] = Math.min(yMin[key], y); yMax[key] = Math.max(yMax[key], y); }
-        var xFin = xEndCad;
-        d.L(xs, y, xFin, y, capa);
+        var xs = key ? xR[key] : xChain - 30, xFin = xEndCad, esA = !!c && c.clase === 'A' && f.tipo !== '24VDC';
+        hLinea(xs, xFin, y, capa, key);
         d.P([[xs, y], [xs + 3.2, y + 1.6], [xs + 3.2, y - 1.6]], true, capa, true);
-        d.T(xChain - 4, y + 2, c ? c.circuito : '(sin lazo asignado)', 2.8, c ? capa : 'FA-ALERTA', 'r');
+        d.T(xChain - 4, y + 2, c ? c.circuito + (esA ? ' (clase A)' : '') : '(sin lazo asignado)', 2.8, c ? capa : 'FA-ALERTA', 'r');
         f.g.forEach(function (it, j) {
           var x = xChain + j * PASO + PASO / 2, sid = simboloDe(it.dsp), cb = caja(SIM[sid] || SIM.FA001), esc = Math.min(ESC, 11 / Math.max(cb.w, cb.h)), top = cb.h * esc / 2;
           d.S(sid, x, y, esc, 'FA-SIMBOLOS');
@@ -499,20 +570,34 @@
           d.T(x, y - top - 3.4, '×' + it.cant, 2.4, 'FA-TEXTO', 'c');
         });
         if (!f.g.length && c) d.T(xChain + 4, y + 1, 'sin dispositivos asignados', 2.4, 'FA-ALERTA');
-        if (/NAC|VOCEO|IDC/.test(f.tipo) && f.tipo !== '24VDC') { d.R(xFin + 2, y - 2.6, 10, 5.2, 'FA-SIMBOLOS'); d.T(xFin + 7, y - 1, 'RFL', 2.4, 'FA-TEXTO', 'c'); }
+        if (esA) {
+          // clase A: el circuito regresa al panel por un segundo camino (retorno por un montante paralelo)
+          var yr = y - 12.6, xb = xFin + 5, xr = xR[key] + 3.6;
+          d.P([[xFin, y], [xb, y], [xb, yr]], false, capa);
+          hLinea(xr, xb, yr, capa, key);
+          d.P([[xr + 3.6, yr], [xr + 6.8, yr + 1.5], [xr + 6.8, yr - 1.5]], true, capa, true);
+          (claseA[key] = claseA[key] || []).push(yr);
+        } else if (/NAC|VOCEO|IDC/.test(f.tipo) && f.tipo !== '24VDC') { d.R(xFin + 2, y - 2.6, 10, 5.2, 'FA-SIMBOLOS'); d.T(xFin + 7, y - 1, 'RFL', 2.4, 'FA-TEXTO', 'c'); }
         if (c) {
           var r = res[c.id], cab = c.cable ? cx.cables[c.cable] : null, nd = r ? r.n : 0;
-          d.T(xInfo, y + 2.2, nd + ' disp. · ' + (r && r.iMa !== null ? fmt(r.iMa, 0) + ' mA' : 'sin corriente') + (c.long ? ' · ' + fmt(c.long, 0) + ' m' : '') + (cab ? ' · ' + cab.modelo + ' ' + cab.awg + ' AWG' : ''), 2.4, 'FA-TEXTO');
+          d.T(xInfo, y + 2.2, nd + ' disp. · ' + (r && r.iMa !== null ? fmt(r.iMa, 0) + ' mA' : 'sin corriente') + (c.long ? ' · ' + fmt(c.long, 0) + ' m' : '') + (cab ? ' · ' + cab.modelo + ' ' + cab.awg + ' AWG' : '') + (esA ? ' · Clase A' : (f.tipo === '24VDC' ? '' : ' · Clase B')), 2.4, 'FA-TEXTO');
           d.T(xInfo, y - 2.2, r && r.caida !== null ? 'ΔV ' + fmt(r.caida, 2) + ' V → ' + fmt(r.vDisp, 2) + ' V en el último dispositivo · ' + r.estado : (r && r.estado ? r.estado : 'falta cable o longitud'),
             2.4, r && /ERROR|INCOMPLETO/.test(r.estado || '') ? 'FA-ALERTA' : 'FA-TEXTO');
         }
       });
     });
-    // montantes verticales
+    // montantes verticales (y su retorno cuando hay lazos clase A)
     llaves.forEach(function (k) {
-      var capa = CAPA_DE_TIPO[k.split('|')[1]];
-      d.L(xR[k], yMin[k], xR[k], yMax[k], capa);
-      d.T(xR[k], yMax[k] + 4, (k.split('|')[1] === '24VDC' ? '24 VDC' : k.split('|')[1]), 2.2, capa, 'c', 90);
+      var capa = CAPA_DE_TIPO[k.split('|')[1]], s = info[k];
+      d.L(xR[k], s.min, xR[k], s.max, capa);
+      d.T(xR[k], s.max + 4, (k.split('|')[1] === '24VDC' ? '24 VDC' : k.split('|')[1]), 2.2, capa, 'c', 90);
+      if (claseA[k]) {
+        var xr = xR[k] + 3.6, ysR = claseA[k].concat([s.y0 - 2.4]);
+        d.L(xr, Math.min.apply(null, ysR), xr, Math.max.apply(null, ysR), capa);
+        var st = stubs[k.split('|')[0]] || { x: fx + fw };
+        d.L(st.x, s.y0 - 2.4, xr, s.y0 - 2.4, capa);
+        d.P([[st.x + 3.4, s.y0 - 2.4], [st.x + 6.6, s.y0 - 0.9], [st.x + 6.6, s.y0 - 3.9]], true, capa, true);
+      }
     });
 
     /* ---- anunciadores remotos (bajo el FACP) ---- */
@@ -559,15 +644,14 @@
     if (!usados.length) { d.R(lx, yy - 14, lw, 14, 'FA-TABLA'); d.T(lx + 4, yy - 8, 'Asigne dispositivos a los niveles en las pestañas de cada panel.', 2.6, 'FA-TEXTO'); yy -= 14; }
 
     yy = tit(yy - 10, 'CABLEADO SISTEMA ALARMAS CONTRA INCENDIO');
-    var vistos = {};
-    P.caida.circuitos.forEach(function (c) {
-      var cab = c.cable ? cx.cables[c.cable] : null, k = c.tipo + '|' + (cab ? cab.id : '');
-      if (vistos[k]) return; vistos[k] = 1;
-      d.R(lx, yy - 11, lw, 11, 'FA-TABLA'); d.L(lx + 30, yy, lx + 30, yy - 11, 'FA-TABLA');
-      d.L(lx + 4, yy - 5.5, lx + 26, yy - 5.5, CAPA_DE_TIPO[c.tipo] || 'FA-TEXTO');
-      d.T(lx + 33, yy - 4.5, (c.tipo === '24VDC' ? '24 VDC' : c.tipo) + ': ' + (cab ? cab.conductores + ' conductores ' + (cab.pantalla === 'SI' ? 'con pantalla ' : '') + cab.listado + ' ' + cab.awg + ' AWG' : 'cable sin definir'), 2.3, 'FA-TEXTO');
-      d.T(lx + 33, yy - 8.5, cab ? 'Ref.: ' + cab.fabricante + ' ' + cab.modelo : '', 2.3, 'FA-TEXTO');
-      yy -= 11;
+    NO.cab.filter(function (q) { return q.on; }).forEach(function (q) {
+      var lin = [];
+      sust(q.txt).split('\n').forEach(function (par) { partir(par, 2.3, lw - 38).forEach(function (l) { lin.push(l); }); });
+      var al = lin.length * 3.4 + 5;
+      d.R(lx, yy - al, lw, al, 'FA-TABLA'); d.L(lx + 30, yy, lx + 30, yy - al, 'FA-TABLA');
+      d.L(lx + 3, yy - 5, lx + 27, yy - 5, q.capa || 'FA-TEXTO');
+      lin.forEach(function (l, k) { d.T(lx + 33, yy - 5 - k * 3.4, l, 2.3, 'FA-TEXTO'); });
+      yy -= al;
     });
 
     // resumen de lazos (de la hoja de caída de tensión)
