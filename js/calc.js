@@ -17,8 +17,20 @@
 
   /* Dispositivos con doble conexión (p. ej. base sonora o haz de luz): van a un SLC y además a un lazo de 24 VDC (campo «circuito2» del catálogo).
    * Para ellos el lazo principal es siempre SLC y la corriente del catálogo se carga al lazo de 24 VDC. */
-  function tipoLazoDe(d) { return d && d.circuito2 ? 'SLC' : ((d && LAZO_DE_CIRCUITO[d.circuito]) || 'NAC'); }
-  function tipoLazo2De(d) { return d && d.circuito2 ? (LAZO_DE_CIRCUITO[d.circuito2] || '24VDC') : null; }
+  function tipoLazoDe(d) {
+    if (!d) return 'NAC';
+    if (d.circuito2 === '24VDC') return 'SLC';                 // con alimentación a 24 V se direcciona por SLC
+    if (d.circuito === 'NAC+VOCEO') return 'NAC';              // parlante + estrobo: el estrobo va al NAC y el parlante al voceo
+    return LAZO_DE_CIRCUITO[d.circuito] || 'NAC';
+  }
+  /* Segundo lazo del dispositivo: «circuito2» del catálogo (24VDC, VOCEO, NAC…) o VOCEO para los de circuito NAC+VOCEO */
+  function tipoLazo2De(d) {
+    if (!d) return null;
+    if (d.circuito2) return LAZO_DE_CIRCUITO[d.circuito2] || d.circuito2;
+    return d.circuito === 'NAC+VOCEO' ? 'VOCEO' : null;
+  }
+  // NAC + voceo pueden ir juntos en un solo lazo «NAC+VOCEO» (misma tubería): en ese caso no hace falta un segundo lazo
+  function parNacVoceo(d) { var a = tipoLazoDe(d), b = tipoLazo2De(d); return (a === 'NAC' && b === 'VOCEO') || (a === 'VOCEO' && b === 'NAC'); }
 
   var PARAMS_DEF = {
     tEspera: 24,       // h — §10.6.7.2.1
@@ -121,29 +133,44 @@
     return m;
   }
 
-  function sumarFilas(cx, filas, circs) {
+  /* Amplificadores del proyecto (equipos de tipo AMP) por id */
+  function amplificadores(proy) { var m = {}; (proy.fuentes || []).forEach(function (f) { if (f.tipo === 'AMP') m[f.id] = f; }); return m; }
+  /* ¿La fila va en un lazo de voceo que pertenece a OTRO equipo que es amplificador? Entonces su corriente se carga a ese amplificador. */
+  function aCargoDeAmp(f, circs, amps, duenoId) {
+    var c = f.circ && circs && circs[f.circ];
+    return c && c.tipo === 'VOCEO' && c.fuente !== duenoId && amps && amps[c.fuente] ? amps[c.fuente] : null;
+  }
+
+  function sumarFilas(cx, filas, circs, dueno) {
     var res = (filas || []).map(function (f) {
       var r = fila(cx, f);
+      var amp = dueno ? aCargoDeAmp(f, circs, dueno.amps, dueno.id) : null;
+      if (amp && r.d && r.d.circuito === 'VOCEO') { r.aCargoDe = amp; r.aviso = 'Se carga al amplificador ' + (amp.tag || ''); r.nivel = 'info'; return r; }
       // el dispositivo debe ir en un lazo de su tipo (un detector SLC no va en un NAC)
       if (f.circ && !r.aviso) {
         var c = circs && circs[f.circ];
         if (!c) { r.aviso = 'El lazo asignado ya no existe'; r.nivel = 'warn'; }
-        else if (r.d && r.d.circuito2 && c.tipo !== 'SLC') { r.aviso = 'Va conectado al SLC (y al lazo de ' + tipoLazo2De(r.d) + '); este lazo es ' + c.tipo; r.nivel = 'warn'; }
-        else if (r.d && !r.d.circuito2 && LAZOS_PERMITIDOS[r.d.circuito] && LAZOS_PERMITIDOS[r.d.circuito].indexOf(c.tipo) < 0) {
+        else if (r.d && tipoLazo2De(r.d)) {
+          if (!(c.tipo === tipoLazoDe(r.d) || (parNacVoceo(r.d) && c.tipo === 'NAC+VOCEO'))) { r.aviso = 'Va conectado a un lazo de ' + tipoLazoDe(r.d) + ' (y a uno de ' + tipoLazo2De(r.d) + '); este lazo es ' + c.tipo; r.nivel = 'warn'; }
+        }
+        else if (r.d && !tipoLazo2De(r.d) && LAZOS_PERMITIDOS[r.d.circuito] && LAZOS_PERMITIDOS[r.d.circuito].indexOf(c.tipo) < 0) {
           r.aviso = 'Es de tipo ' + r.d.circuito + ' y el lazo es ' + c.tipo; r.nivel = 'warn';
         }
       }
-      // doble conexión: el segundo lazo (24 VDC) también debe existir y ser del tipo correcto
-      if (r.d && r.d.circuito2 && f.circ && !r.aviso) {
-        var c2 = f.circ2 && circs && circs[f.circ2];
-        if (!f.circ2) { r.aviso = 'Asigne también el lazo de ' + tipoLazo2De(r.d) + ' (alimentación)'; r.nivel = 'warn'; }
-        else if (!c2) { r.aviso = 'El lazo de ' + tipoLazo2De(r.d) + ' asignado ya no existe'; r.nivel = 'warn'; }
-        else if (c2.tipo !== tipoLazo2De(r.d)) { r.aviso = 'La alimentación va a un lazo de ' + tipoLazo2De(r.d) + ' y este es ' + c2.tipo; r.nivel = 'warn'; }
+      // doble conexión: el segundo lazo también debe existir y ser del tipo correcto (salvo NAC + voceo en un solo lazo combinado)
+      if (r.d && tipoLazo2De(r.d) && f.circ && !r.aviso) {
+        var c1 = circs && circs[f.circ], t2 = tipoLazo2De(r.d), c2 = f.circ2 && circs && circs[f.circ2];
+        if (!(parNacVoceo(r.d) && c1 && c1.tipo === 'NAC+VOCEO')) {
+          if (!f.circ2) { r.aviso = 'Asigne también el lazo de ' + t2 + (t2 === '24VDC' ? ' (alimentación)' : ''); r.nivel = 'warn'; }
+          else if (!c2) { r.aviso = 'El lazo de ' + t2 + ' asignado ya no existe'; r.nivel = 'warn'; }
+          else if (c2.tipo !== t2) { r.aviso = 'El segundo lazo debe ser de ' + t2 + ' y este es ' + c2.tipo; r.nivel = 'warn'; }
+        }
       }
       return r;
     });
     var iEsp = 0, iAlm = 0, errores = 0;
     res.forEach(function (r) {
+      if (r.aCargoDe) return;
       iEsp += r.iEspT || 0;
       iAlm += r.iAlmT || 0;
       if (r.nivel === 'error') errores++;
@@ -153,7 +180,7 @@
 
   /* Hoja BAT_FACP / BAT_TRP */
   function panel(cx, p, proy) {
-    var s = sumarFilas(cx, p.filas, mapaCircuitos(proy));
+    var s = sumarFilas(cx, p.filas, mapaCircuitos(proy), { id: p.id, amps: amplificadores(proy) });
     s.bat = bateria(cx, s.iEsp, s.iAlm, param(p, proy, 'tEspera'), param(p, proy, 'tAlarma'), param(p, proy, 'fs'));
     s.estado = s.errores ? 'REVISAR' : s.bat.estado;
     return s;
@@ -161,18 +188,34 @@
 
   /* Hoja CALC_FUENTE_AUX: el consumo propio de la fuente se suma a espera y alarma; límite 80 % de I máx */
   function fuente(cx, f, proy) {
-    var s = sumarFilas(cx, f.filas, mapaCircuitos(proy));
+    var s = sumarFilas(cx, f.filas, mapaCircuitos(proy), { id: f.id, amps: amplificadores(proy) });
     var iPropia = num(f.iPropia) || 0;
     s.iEspDisp = s.iEsp;
     s.iAlmDisp = s.iAlm;
     s.iMax = num(f.iMax);
     if (f.tipo === 'AMP') {
-      // Amplificador de voceo: en espera consume su corriente propia; en alarma, la de plena potencia (ficha). No limita al 80 %.
-      s.iEsp += iPropia;
-      s.iAlm += s.iMax || 0;
-      s.iPermitida = null;
-      s.okCorriente = null;
-      s.verificacion = s.iMax === null ? 'Defina I alarma (A) del amplificador' : 'Carga a plena potencia';
+      // Amplificador de voceo: lo que va por sus lazos de voceo (parlantes de cualquier panel) se carga aquí.
+      // Alarma = consumo propio + carga de voceo; I máx. (ficha, plena potencia) es la capacidad y, si no hay parlantes asignados, la carga de diseño.
+      var circsA = mapaCircuitos(proy), ext = { iEsp: 0, iAlm: 0, n: 0 };
+      (proy.paneles || []).concat(proy.fuentes || []).forEach(function (eq) {
+        if (eq === f) return;
+        (eq.filas || []).forEach(function (fl) {
+          var c = fl.circ && circsA[fl.circ];
+          if (!c || c.tipo !== 'VOCEO' || c.fuente !== f.id) return;
+          var rr = fila(cx, fl);
+          if (!rr.d || rr.d.circuito !== 'VOCEO') return;
+          ext.iEsp += rr.iEspT || 0; ext.iAlm += rr.iAlmT || 0; ext.n += num(fl.cant) || 0;
+        });
+      });
+      var carga = s.iAlm + ext.iAlm;
+      s.cargaVoceo = carga; s.nVoceo = ext.n;
+      s.iEsp += ext.iEsp + iPropia;
+      var usaFicha = carga === 0 && s.iMax !== null;
+      s.iAlm = (usaFicha ? s.iMax : carga) + iPropia;
+      s.iPermitida = s.iMax;
+      s.okCorriente = s.iMax === null ? null : s.iAlm <= s.iMax + 1e-9;
+      s.verificacion = s.okCorriente === false ? 'ERROR: EXCEDE LA CAPACIDAD DEL AMPLIFICADOR'
+        : (usaFicha ? 'Sin parlantes asignados: usa I máx. de ficha' : (carga === 0 ? 'Asigne parlantes a un lazo de voceo de este amplificador' : 'Carga de voceo ' + (Math.round(carga * 1000)) + ' mA'));
     } else {
       s.iEsp += iPropia;
       s.iAlm += iPropia;
@@ -194,16 +237,20 @@
 
   /* Carga de cada lazo = Σ (cantidad × corriente de alarma) de los dispositivos asignados a él (en mA) */
   function cargasLazos(cx, proy) {
-    var mapa = {};
+    var mapa = {}, circs = mapaCircuitos(proy);
     (proy.paneles || []).concat(proy.fuentes || []).forEach(function (eq) {
       (eq.filas || []).forEach(function (f) {
         if (!f.circ && !f.circ2) return;
         var r = fila(cx, f), cant = num(f.cant);
         if (!r.d || !cant) return;
-        var dual = !!r.d.circuito2;
-        // doble conexión: el SLC solo cuenta el dispositivo; la corriente (24 V) va al lazo de alimentación
-        var lz = dual ? f.circ2 : f.circ;
-        if (dual && f.circ) { var ms = mapa[f.circ] || (mapa[f.circ] = { n: 0, iMa: 0, sinI: 0, bases: false, notif: false }); ms.n += cant; }
+        var t2 = tipoLazo2De(r.d), lz = f.circ, soloCuenta = null;
+        if (t2) {
+          var c1 = circs[f.circ];
+          if (parNacVoceo(r.d) && c1 && c1.tipo === 'NAC+VOCEO') lz = f.circ;                      // un solo lazo combinado: todo ahí
+          else if (t2 === '24VDC') { lz = f.circ2; soloCuenta = f.circ; }                          // la corriente (24 V) va al lazo de alimentación; el SLC solo cuenta el dispositivo
+          else { lz = f.circ; soloCuenta = f.circ2; }                                              // NAC + voceo por separado: la corriente en el lazo principal; el otro solo cuenta
+        }
+        if (soloCuenta) { var ms = mapa[soloCuenta] || (mapa[soloCuenta] = { n: 0, iMa: 0, sinI: 0, bases: false, notif: false }); ms.n += cant; }
         if (!lz) return;
         var m = mapa[lz] || (mapa[lz] = { n: 0, iMa: 0, sinI: 0, bases: false, notif: false });
         m.n += cant;
@@ -297,6 +344,8 @@
     TIPOS_LAZO: TIPOS_LAZO,
     tipoLazoDe: tipoLazoDe,
     tipoLazo2De: tipoLazo2De,
+    parNacVoceo: parNacVoceo,
+    amplificadores: amplificadores,
     PARAMS_DEF: PARAMS_DEF,
     num: num,
     preparar: preparar,

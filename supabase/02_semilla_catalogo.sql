@@ -155,3 +155,11 @@ commit;
 
 -- Dispositivos con doble conexión (SLC + lazo de 24 VDC): bases sonoras, detectores CO con base audible y haz de luz
 update public.dispositivos set circuito2 = '24VDC' where id in ('d28', 'd66', 'd67', 'd68', 'd69', 'd89', 'd90', 'd92');
+-- Módulos de control/relay/zona y detectores de ducto: además del SLC se conectan a 24 VDC
+update public.dispositivos set circuito2 = '24VDC' where id in ('d06', 'd10', 'd11', 'd33', 'd36', 'd37', 'd38', 'd58');
+
+-- Sensor de monóxido de carbono (base 4098-9771 con módulo TC4 4905-9835) — Simplex
+insert into public.dispositivos (id, fabricante_id, modelo, tag, tipo, descripcion, i_espera_ma, i_alarma_ma, circuito, circuito2, obs, orden) values
+  ('d111', 'simplex', '4098-9771', 'CO-B', 'Base de monóxido de carbono (CO)', 'BASE DE MONÓXIDO DE CARBONO (CO) CON SONADOR 4098-9771 (se usa con módulo TC4 4905-9835)', 1, 18, 'SLC', '24VDC', 'Ficha S4098-0052 Rev.4: sonador 17 mA a 24 VDC en alarma + lazo IDNet 1 mA típ.', 111),
+  ('d112', 'simplex', '4905-9835', 'TC4', 'Módulo temporal código 4 (CO)', 'MÓDULO TEMPORAL CÓDIGO 4 PARA ALARMA DE CO 4905-9835 (TC4)', null, null, 'NAC', '', 'Sin corriente publicada: digitarla de la ficha S4905-0006. Salida 3 A máx., solo audibles: CONFIRMAR.', 112)
+on conflict (id) do nothing;

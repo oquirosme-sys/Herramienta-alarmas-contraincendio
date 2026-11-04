@@ -637,7 +637,7 @@
     if (!amps.length) {
       h.push('<div class="vacio">Sin amplificadores. Agregue uno por cada amplificador de voceo / evacuación por voz (sus parlantes se asignan en su pestaña a un lazo de voceo).</div>');
     } else {
-      h.push('<table class="t"><thead><tr><th>TAG</th><th>Nivel</th><th>Alimentado desde</th><th class="num">I alarma plena potencia (A)</th><th class="num">I espera (A)</th><th class="num">I alarma total (A)</th><th>Verificación</th><th class="num">Ah requerido</th><th class="num">Batería (Ah)</th><th>Estado</th><th></th></tr></thead><tbody>');
+      h.push('<table class="t"><thead><tr><th>TAG</th><th>Nivel</th><th>Alimentado desde</th><th class="num">I máx. ficha (A)</th><th class="num">I espera propia (A)</th><th class="num">I alarma total (A)</th><th>Verificación</th><th class="num">Ah requerido</th><th class="num">Batería (Ah)</th><th>Estado</th><th></th></tr></thead><tbody>');
       amps.forEach(function (f) {
         var b = function (k, t) { return 'data-o="fuente" data-id="' + esc(f.id) + '" data-k="' + k + '"' + (t ? ' data-t="' + t + '" type="number" step="any"' : ''); };
         h.push('<tr><td><input class="in w-sm" ' + b('tag') + ' data-re="tabs" value="' + esc(f.tag) + '"></td>' +
@@ -693,7 +693,7 @@
     var esA = esF && esAmp(eq);
     var titulo = esA ? 'Amplificador ' + eq.tag : esF ? 'Fuente auxiliar ' + eq.tag : (eq.tipo === 'FACP' ? 'Panel ' : 'Transponder ') + eq.tag;
     h.push('<div class="encabezado"><div><h2>' + esc(titulo) + (eq.nivel ? ' · ' + esc(eq.nivel) : '') + '</h2>' +
-      '<div class="sub">' + (esA ? 'Cálculo de batería del amplificador de voceo — NFPA 72:2022 §10.6.7 (en alarma consume la corriente de plena potencia)' : esF ? 'Cálculo de fuente de poder auxiliar (NAC expander / bases sonoras) — NFPA 72:2022'
+      '<div class="sub">' + (esA ? 'Cálculo de batería del amplificador de voceo — NFPA 72:2022 §10.6.7. Los parlantes de sus lazos de voceo (de cualquier nivel o panel) se cargan aquí y no al panel.' : esF ? 'Cálculo de fuente de poder auxiliar (NAC expander / bases sonoras) — NFPA 72:2022'
         : 'Cálculo de baterías — NFPA 72:2022 §10.6.7. Cada panel/transponder calcula su propia batería (respalda solo su carga local).') + '</div></div>' +
       '<div class="acciones"><button class="btn" data-act="ir" data-tab="proyecto">← Proyecto</button>' +
       '<button class="btn danger" data-act="' + o + '-del" data-id="' + esc(eq.id) + '">Eliminar ' + (esA ? 'amplificador' : esF ? 'fuente' : 'panel') + '</button></div></div>');
@@ -708,8 +708,8 @@
       campo('Tiempo de espera (h)', B('tEspera', 'num'), eq.tEspera, { attrs: { placeholder: pp.tEspera } }) +
       campo('Tiempo de alarma (min)', B('tAlarma', 'num'), eq.tAlarma, { attrs: { placeholder: pp.tAlarma, list: 'dl-talarma' }, ayuda: '5 min alarma · 15 min voceo/EVACS' }) +
       campo('Factor de seguridad (%)', B('fs', 'pct'), eq.fs, { attrs: { placeholder: +(pp.fs * 100).toFixed(2) } }) +
-      (esA ? campo('I alarma a plena potencia (A) — ficha', B('iMax', 'num'), eq.iMax, { ayuda: 'Corriente a 24 VDC con el amplificador a potencia nominal' }) +
-        campo('I en espera (A) — ficha', B('iPropia', 'num'), eq.iPropia, { ayuda: 'Consumo propio en reposo' })
+      (esA ? campo('I máx. (A) — ficha, plena potencia', B('iMax', 'num'), eq.iMax, { ayuda: 'Capacidad del amplificador a 24 VDC. La carga real sale de los parlantes en sus lazos de voceo; si no hay parlantes se usa este valor' }) +
+        campo('I propia (A) — ficha', B('iPropia', 'num'), eq.iPropia, { ayuda: 'Consumo propio del amplificador; se suma en espera y en alarma' })
         : esF ? campo('I máx. fuente (A) — ficha', B('iMax', 'num'), eq.iMax, { ayuda: 'Ej.: Notifier FCPS-24S8 = 8 A. Se limita al 80 %' }) +
         campo('I propia de la fuente (A)', B('iPropia', 'num'), eq.iPropia, { ayuda: 'Se suma en espera y en alarma' }) : '') +
       '</div><datalist id="dl-talarma"><option value="5"><option value="15"></datalist></div></section>');
@@ -804,7 +804,7 @@
       '<td class="calc" data-out="tag:' + f.id + '"></td>' +
       '<td><select class="in w-md" ' + b('zona') + '>' + optsNiveles(f.zona) + '</select></td>' +
       '<td><select class="in w-md" ' + b('circ') + '>' + optsLazos(equipo(ref), f.circ) + '</select>' +
-      (d && d.circuito2 ? '<select class="in w-md" style="margin-top:.25rem" title="Este dispositivo también se alimenta de un lazo de ' + esc(Calc.tipoLazo2De(d)) + '" ' + b('circ2') + '>' +
+      (d && Calc.tipoLazo2De(d) ? '<select class="in w-md" style="margin-top:.25rem" title="Este dispositivo se conecta también a un lazo de ' + esc(Calc.tipoLazo2De(d)) + (Calc.parNacVoceo(d) ? ' (o use un solo lazo NAC+Voceo)' : '') + '" ' + b('circ2') + '>' +
         optsLazos(equipo(ref), f.circ2, Calc.tipoLazo2De(d)).replace('— sin lazo —', '— ' + esc(etiquetaTipo(Calc.tipoLazo2De(d))) + ' —') + '</select>' : '') + '</td>' +
       '<td><input class="in w-xs" type="number" min="0" step="1" ' + b('cant', 'num') + ' value="' + fmtN(f.cant) + '" placeholder="10"></td>' +
       '<td><input class="in w-xs" type="number" step="any" ' + b('iEsp', 'num') + ' value="' + fmtN(f.iEsp) + '" placeholder="' + (d ? fmtN(d.iEspera) : '') + '"></td>' +
@@ -1109,7 +1109,7 @@
       { k: 'fabricante', l: 'Fabricante', tipo: 'fab' }, { k: 'modelo', l: 'Modelo / ref.', w: 'w-sm' }, { k: 'tag', l: 'TAG', w: 'w-sm' },
       { k: 'tipo', l: 'Tipo (qué es)', w: 'w-md', list: 'dl-tipos' },
       { k: 'descripcion', l: 'Descripción', w: 'w-lg' }, { k: 'iEspera', l: 'I espera (mA)', t: 'num' }, { k: 'iAlarma', l: 'I alarma (mA)', t: 'num' },
-      { k: 'circuito', l: 'Circuito', w: 'w-sm', list: 'dl-circuitos' }, { k: 'circuito2', l: '2.º circuito (24 VDC)', w: 'w-sm', list: 'dl-circuitos2' }, { k: 'obs', l: 'Fuente / observación', w: 'w-lg' }
+      { k: 'circuito', l: 'Circuito', w: 'w-sm', list: 'dl-circuitos' }, { k: 'circuito2', l: '2.º circuito (24VDC, VOCEO…)', w: 'w-sm', list: 'dl-circuitos2' }, { k: 'obs', l: 'Fuente / observación', w: 'w-lg' }
     ],
     cables: [
       { k: 'fabricante', l: 'Fabricante', w: 'w-sm' }, { k: 'modelo', l: 'Modelo', w: 'w-sm' }, { k: 'awg', l: 'AWG', t: 'num' }, { k: 'conductores', l: 'Cond.', t: 'num' },
@@ -1185,6 +1185,28 @@
     svg.addEventListener('pointerup', soltar); svg.addEventListener('pointercancel', soltar);
     svg.addEventListener('dblclick', ajustar);
   }
+  /* Notas del diagrama: cada una se puede apagar con su casilla y editar */
+  function notasDUProy() { var n = S.proy.notasDU; if (!n || !n.facp || !n.gen) n = S.proy.notasDU = Lamina.notasDUBase(); return n; }
+  function editorNotasDU() {
+    var N = notasDUProy(), letra = 0;
+    function lista(g, titulo, ayuda) {
+      var h = '<h3 style="margin:.9rem 0 .2rem">' + titulo + '</h3><p class="muted" style="margin:0 0 .5rem">' + ayuda + '</p>';
+      N[g].forEach(function (x) {
+        var item = x.grupo === 'i', cab = x.grupo === 'h';
+        h += '<div style="display:flex;gap:.5rem;align-items:flex-start;margin:.3rem 0' + (item ? ';margin-left:2rem' : '') + '">' +
+          '<input type="checkbox" title="Mostrar esta nota en el diagrama" data-nu="on" data-g="' + g + '" data-id="' + esc(x.id) + '"' + (x.on ? ' checked' : '') + ' style="margin-top:.6rem">' +
+          '<textarea rows="' + (x.txt.length > 150 ? 4 : (x.txt.length > 70 ? 2 : 1)) + '" data-nu="txt" data-g="' + g + '" data-id="' + esc(x.id) + '" style="flex:1;' + (x.on ? '' : 'opacity:.5') + '">' + esc(x.txt) + '</textarea>' +
+          '<button class="btn btn-sm" data-act="nu-del" data-g="' + g + '" data-id="' + esc(x.id) + '" title="Quitar la nota">✕</button></div>';
+      });
+      return h + '<div class="acciones"><button class="btn btn-sm" data-act="nu-add" data-g="' + g + '">＋ Nota</button>' + (g === 'facp' ? '<button class="btn btn-sm" data-act="nu-add" data-g="facp" data-item="1">＋ Botón de desconexión</button>' : '') + '</div>';
+    }
+    return '<div class="card"><h2>Notas del diagrama</h2>' +
+      '<p class="muted">Marque o desmarque la casilla para mostrar u ocultar cada nota en el diagrama (no se borra); edite el texto a su gusto. ' +
+      'En el texto, <code>{tEspera}</code>, <code>{tAlarma}</code> y <code>{facpRef}</code> se reemplazan por los parámetros del proyecto y el modelo del panel. Los botones de desconexión se rotulan A, B, C… en orden según los que estén marcados.</p>' +
+      lista('facp', 'Notas junto al FACP (con flecha al panel)', 'Se dibujan a la izquierda del panel, como en la lámina ED-6200.') +
+      lista('gen', 'Notas generales (tabla «Notas sistema alarmas contra incendio»)', 'Se numeran en orden según las que estén marcadas.') +
+      '<div class="acciones" style="margin-top:.8rem"><button class="btn" data-act="nu-base">Restablecer notas base</button></div></div>';
+  }
   function editorMatriz() {
     var M = matrizProy();
     var h = '<div class="card"><h2>Matriz de entradas / salidas</h2>' +
@@ -1229,6 +1251,7 @@
       '<button class="btn" data-act="lam-dxf-hojas">⬇ DXF en láminas con cajetín</button>' +
       '<button class="btn" data-act="lam-pdf-hojas">🖨 PDF en láminas con cajetín</button></div></div>';
     if (S.lam === 'matriz') h += editorMatriz();
+    if (S.lam === 'du') h += editorNotasDU();
     h += '<div class="card"><div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem"><h2 style="margin:0;flex:1">Vista previa</h2>' +
       '<span class="muted" style="font-size:.85em">Rueda = zoom · arrastre = mover (✋) · doble clic = ajustar</span>' +
       '<button class="btn btn-sm" data-act="z-out" title="Alejar">−</button><span id="lamZoomTxt" style="min-width:3.2rem;text-align:center">100 %</span>' +
@@ -1238,6 +1261,12 @@
     S.pintor = pintarLamina;
   }
   vista.addEventListener('change', function (e) {
+    var en = e.target;
+    if (en.dataset && en.dataset.nu) {
+      var NU = notasDUProy(), q = porId(NU[en.dataset.g], en.dataset.id);
+      if (q) { if (en.dataset.nu === 'on') { q.on = en.checked; var ta = en.parentNode.querySelector('textarea'); if (ta) ta.style.opacity = q.on ? '' : '.5'; } else q.txt = en.value; }
+      proyectoCambiado(); pintarLamina(); return;
+    }
     var el = e.target, t = el.dataset && el.dataset.lm;
     if (!t) return;
     var M = matrizProy();
@@ -1329,7 +1358,7 @@
     var tipos = {};
     S.cat.dispositivos.forEach(function (d) { if (d.tipo) tipos[d.tipo] = 1; });
     h.push('<datalist id="dl-tipos">' + Object.keys(tipos).sort().map(function (t) { return '<option value="' + esc(t) + '">'; }).join('') + '</datalist>');
-    h.push('<datalist id="dl-circuitos2"><option value="24VDC"></datalist>');
+    h.push('<datalist id="dl-circuitos2"><option value="24VDC"><option value="VOCEO"><option value="NAC"><option value="SLC"></datalist>');
     h.push('<datalist id="dl-circuitos">' + Object.keys(circuitos).map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist>');
     vista.innerHTML = h.join('');
 
@@ -1673,6 +1702,17 @@
 
     /* ----- láminas ----- */
     'lam-sel': function (b) { S.lam = b.dataset.id; S.lamView = null; renderVista(); },
+    'nu-add': function (b) {
+      var N = notasDUProy(), g = b.dataset.g;
+      N[g].push({ id: uid('n'), on: true, txt: b.dataset.item ? 'NUEVO BOTÓN DE DESCONEXIÓN' : 'Nueva nota', grupo: b.dataset.item ? 'i' : '' });
+      proyectoCambiado(); renderVista();
+    },
+    'nu-del': function (b) { var N = notasDUProy(); N[b.dataset.g] = N[b.dataset.g].filter(function (x) { return x.id !== b.dataset.id; }); proyectoCambiado(); renderVista(); },
+    'nu-base': function () {
+      confirmar('Restablecer notas', 'Se reemplazan las notas del diagrama por las notas base. ¿Continuar?', 'Restablecer').then(function (ok) {
+        if (!ok) return; S.proy.notasDU = Lamina.notasDUBase(); proyectoCambiado(); renderVista();
+      });
+    },
     'z-in': function () { if (S.lamZoom) S.lamZoom(1.3); },
     'z-out': function () { if (S.lamZoom) S.lamZoom(1 / 1.3); },
     'z-fit': function () { if (S.lamAjustar) S.lamAjustar(); },

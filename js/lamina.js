@@ -32,7 +32,7 @@
   /* TAG del catálogo → símbolo NFPA 170 (id). Las etiquetas «AIM», «AOM», etc. vienen dentro del propio símbolo. */
   var SIM_TAG = [
     [/^FACP/, 'FA016'], [/^TRP/, 'FA018'], [/^ANN/, 'FA013'], [/^AMP/, 'FA002'], [/^RPS/, 'FA025'],
-    [/^SD-DUCTO|^RTS/, 'FA133'], [/^SDH-C/, 'FA132'], [/^SDT/, 'FA079'], [/^CO\+SB/, 'FA127'], [/^CO/, 'FA127'], [/^SDH/, 'FA132'],
+    [/^SD-DUCTO|^RTS/, 'FA133'], [/^SDH-C/, 'FA132'], [/^SDT/, 'FA079'], [/^CO\+SB/, 'FA127'], [/^CO-B/, 'FA076'], [/^TC4/, 'FA096'], [/^CO/, 'FA127'], [/^SDH/, 'FA132'],
     [/^BH/, 'FA130'], [/^EM/, 'FA118'], [/^AIM/, 'FA064'], [/^AOM/, 'FA066'], [/^ZAM|^ISO/, 'FA067'], [/^RLY/, 'FA088'],
     [/^SS/, 'FA100'], [/^WF/, 'FA090'], [/^VS/, 'FA104'], [/^SB/, 'FA134'],
     [/^ST-C-WRF/, 'FA157'], [/^ST-WRF/, 'FA158'], [/^SPK\+ST-C/, 'FA154'], [/^SPK\+ST/, 'FA155'], [/^SPK/, 'FA151'],
@@ -316,12 +316,53 @@
     return { ancho: W, yFin: y };
   }
 
+  /* ======================= NOTAS DEL DIAGRAMA (editables, con casilla para apagarlas) =======================
+   * facp: notas con flecha junto al FACP (ED-6200). grupo 'h' = encabezado de la lista de botones de desconexión; 'i' = cada botón (se rotula A, B, C… en orden).
+   * gen: notas de la tabla «NOTAS SISTEMA…». Fichas {tEspera}, {tAlarma} y {facpRef} se reemplazan al dibujar. */
+  function notasDUBase() {
+    var n = 0;
+    function f(txt, grupo) { return { id: 'nf' + (++n), on: true, txt: txt, grupo: grupo || '' }; }
+    function g(txt) { return { id: 'ng' + (++n), on: true, txt: txt }; }
+    return {
+      facp: [
+        f('PANEL DE ALARMA CONTRA INCENDIO UBICADO EN CUARTO DE COMANDO DE BOMBEROS. REFERENCIA: {facpRef}'),
+        f('ANUNCIADOR REMOTO DE ALARMA CONTRA INCENDIO UBICADO EN RECEPCIÓN'),
+        f('4 CONDUCTORES (SÓLIDO) FPLR CALIBRE 16 AWG. REF.: 5522UL.'),
+        f('CONEXIÓN POR FIBRA ÓPTICA CON EL PANEL DE INCENDIO DEL PANEL OPERATIVO'),
+        f('CIRCUITO DEDICADO 120 VAC/20 A (POR MEDIO DE UN INTERRUPTOR APROBADO CON OPCIÓN DE BLOQUEO), DE ACUERDO CON 10.6.5.4 NFPA 72. BATERÍA 12 V. SE DEBERÁ GARANTIZAR UNA CAPACIDAD DE OPERACIÓN DURANTE UN MÍNIMO DE {tEspera} HORAS CON EL SISTEMA BAJO CARGA INACTIVA Y {tAlarma} MINUTOS CON EL SISTEMA BAJO CARGA MÁXIMA CONECTADA. DE ACUERDO CON 10.6.7.2.1.2 NFPA 72 SE DEBE CONTEMPLAR ESPACIO PARA UNA AMPLIACIÓN NO MENOR DE 20%.'),
+        f('CON LOS SIGUIENTES BOTONES DE DESCONEXIÓN INDIVIDUAL:', 'h'),
+        f('DISPOSITIVOS DE NOTIFICACIÓN ACÚSTICA Y LUCES ESTROBOSCÓPICAS (LA BASE DEL AVISADOR ACÚSTICO DE LAS HABITACIONES Y LAS LUCES ESTROBOSCÓPICAS DE LAS HABITACIONES PARA PERSONAS CON DISCAPACIDAD AUDITIVA DEBERÁN FUNCIONAR TRAS LA ACTIVACIÓN DEL DETECTOR DE HUMO DE LA HABITACIÓN)', 'i'),
+        f('MECANISMOS DE RETENCIÓN DE PUERTAS', 'i'),
+        f('RECUPERACIÓN DE ASCENSORES', 'i'),
+        f('UNIDADES DE TRATAMIENTO DE AIRE Y SISTEMAS DE CONTROL DE HUMOS', 'i'),
+        f('SISTEMAS AUDIOVISUALES (MÚSICA DEL HOTEL Y SISTEMA DE REGULACIÓN DE LA ILUMINACIÓN)', 'i'),
+        f('MODO DE PRUEBA ACELERADA DE MONÓXIDO DE CARBONO (CO)', 'i')
+      ],
+      gen: [
+        g('Panel con circuito dedicado 120 VAC/20 A mediante interruptor aprobado con opción de bloqueo, de acuerdo con NFPA 72 §10.6.5.4.'),
+        g('Baterías con capacidad para {tEspera} h en espera y {tAlarma} min en alarma (NFPA 72 §10.6.7.2.1.2); prever espacio para ampliación no menor de 20 %.'),
+        g('Se debe contemplar un módulo aislador por cada nivel y cada 25 dispositivos por lazo.'),
+        g('Los sensores y módulos con doble conexión se conectan al SLC y a un lazo de 24 VDC; los parlantes con estrobo, a un NAC y a un lazo de voceo (o a un lazo NAC+Voceo en la misma tubería).'),
+        g('RFL: resistencia de fin de línea en los circuitos de notificación y de zona.'),
+        g('Cantidades y especificaciones de los módulos según planos de planta; símbolos según NFPA 170 (2018), cap. 8.')
+      ]
+    };
+  }
+
   /* ======================= DIAGRAMA UNIFILAR (DU) ======================= */
   function dibujarDU(d, ctx, x0, yTop) {
     var P = ctx.proy, cx = ctx.cx, Calc = ctx.Calc, cd = Calc.caida(cx, P), RP = Calc.proyecto(cx, P);
     var niveles = P.niveles.length ? P.niveles : ['NIVEL 1'];
     var equipos = P.paneles.concat(P.fuentes);
     var ORD = ['SLC', 'IDC', 'NAC', 'NAC+VOCEO', 'IDNAC', 'VOCEO', '24VDC'];
+    var NO = (P.notasDU && P.notasDU.facp && P.notasDU.gen) ? P.notasDU : notasDUBase();
+    var notasF = NO.facp.filter(function (x) { return x.on; });
+    var MARG = notasF.length ? 190 : 0, xL = x0;
+    x0 += MARG;
+    var pr0 = P.params || {}, tE = Calc.num(pr0.tEspera) || 24, tA = Calc.num(pr0.tAlarma) || 15;
+    var facp0 = P.paneles[0], dFacp = facp0 && (facp0.filas || []).map(function (f) { return cx.disp[f.disp]; }).filter(function (q) { return q && q.tag === 'FACP'; })[0];
+    var facpRef = dFacp ? ((cx.fabricantes[dFacp.fabricante] || {}).nombre || '') + ' ' + dFacp.modelo : ((cx.fabricantes && cx.fabricantes[P.fabricante]) ? cx.fabricantes[P.fabricante].nombre : '');
+    function sust(t) { return String(t || '').replace(/\{tEspera\}/g, tE).replace(/\{tAlarma\}/g, tA).replace(/\{facpRef\}/g, facpRef.trim()); }
     var ROW = 27, PAD = 16, ESC = 1.35, PASO = 24;
     var circs = {}, res = {};
     P.caida.circuitos.forEach(function (c, i) { circs[c.id] = c; res[c.id] = cd.circuitos[i]; });
@@ -349,7 +390,7 @@
           sinLazo[nv] = sinLazo[nv] || {};
           sumar(sinLazo[nv][t] = sinLazo[nv][t] || [], dsp, cant);
         }
-        if (dsp.circuito2 && f.circ2 && circs[f.circ2]) sumar(porLazo[f.circ2] = porLazo[f.circ2] || [], dsp, cant);
+        if (Calc.tipoLazo2De(dsp) && f.circ2 && circs[f.circ2]) sumar(porLazo[f.circ2] = porLazo[f.circ2] || [], dsp, cant);
         if (usados.indexOf(dsp.id) < 0) { usados.push(dsp.id); numDe[dsp.id] = usados.length; }
       });
     });
@@ -390,9 +431,9 @@
     var xEndCad = xChain + maxCad * PASO;
     var xInfo = xEndCad + 16, xEnd = xInfo + 150;
 
-    d.T(x0, yTop, 'DU ALARMAS CONTRA INCENDIO', 7, 'FA-TEXTO');
-    d.T(x0, yTop - 8, (P.nombre || '') + (P.numero ? ' · ' + P.numero : '') + (P.cliente ? ' · ' + P.cliente : ''), 3.4, 'FA-TEXTO');
-    d.T(x0, yTop - 14, 'Una línea por lazo y nivel; cargas y caídas de tensión de la hoja de cálculo.', 2.4, 'FA-TEXTO');
+    d.T(xL, yTop, 'DU ALARMAS CONTRA INCENDIO', 7, 'FA-TEXTO');
+    d.T(xL, yTop - 8, (P.nombre || '') + (P.numero ? ' · ' + P.numero : '') + (P.cliente ? ' · ' + P.cliente : ''), 3.4, 'FA-TEXTO');
+    d.T(xL, yTop - 14, 'Una línea por lazo y nivel; cargas y caídas de tensión de la hoja de cálculo.', 2.4, 'FA-TEXTO');
 
     d.cortes = yb.slice();                       // la lámina puede cortarse en los separadores de nivel
     // separadores y nombres de nivel
@@ -481,6 +522,24 @@
       d.T(fx + 28, ya - i * 12 - 5.2, 'ANUNCIADOR REMOTO ×' + a.cant + (a.nivel ? ' · ' + a.nivel : '') + ' — ' + (a.dsp.modelo || a.dsp.tag), 2.6, 'FA-TEXTO');
     });
 
+    /* ---- notas junto al FACP (editables): texto a la izquierda con flecha al panel ---- */
+    if (notasF.length) {
+      var nx = xL + MARG - 16, ny = fy + fh + 30, hayItems = NO.facp.some(function (q) { return q.on && q.grupo === 'i'; }), letra = 0, ne = 0;
+      notasF.forEach(function (q) {
+        if (q.grupo === 'h' && !hayItems) return;
+        var txt = sust(q.txt), esItem = q.grupo === 'i';
+        if (esItem) txt = String.fromCharCode(65 + letra++) + '. ' + txt;
+        var lin = partir(txt, 2.5, MARG - 26);
+        lin.forEach(function (l, k) { d.T(nx - (esItem ? 4 : 0), ny - k * 3.5, l, 2.5, 'FA-TEXTO', 'r'); });
+        if (!esItem) {
+          var ya = Math.max(fy + 8, Math.min(fy + fh - 8, ny + 1)), xe = nx + 3 + (ne++) * 1.1;
+          d.L(nx + 2, ny + 1, xe, ny + 1, 'FA-TEXTO'); if (Math.abs(ya - (ny + 1)) > 0.1) d.L(xe, ny + 1, xe, ya, 'FA-TEXTO');
+          d.L(xe, ya, fx - 1, ya, 'FA-TEXTO'); d.P([[fx, ya], [fx - 3.4, ya + 1.2], [fx - 3.4, ya - 1.2]], true, 'FA-TEXTO', true);
+        }
+        ny -= lin.length * 3.5 + 3.5;
+      });
+    }
+
     /* ---- tablas a la derecha ---- */
     var lx = xEnd + 24, ly = yTop - 4, lw = 235;
     function tit(yy, t) { d.R(lx, yy - 12, lw, 12, 'FA-TABLA'); d.T(lx + lw / 2, yy - 8.2, t, 3.4, 'FA-TEXTO', 'c'); return yy - 12; }
@@ -545,15 +604,7 @@
 
     // notas del sistema
     yy = tit(yy - 10, 'NOTAS SISTEMA ALARMAS CONTRA INCENDIO');
-    var pr = P.params || {}, tE = Calc.num(pr.tEspera) || 24, tA = Calc.num(pr.tAlarma) || 15;
-    [
-      'Panel con circuito dedicado 120 VAC/20 A mediante interruptor aprobado con opción de bloqueo, de acuerdo con NFPA 72 §10.6.5.4.',
-      'Baterías con capacidad para ' + tE + ' h en espera y ' + tA + ' min en alarma (NFPA 72 §10.6.7.2.1.2); prever espacio para ampliación no menor de 20 %.',
-      'Se debe contemplar un módulo aislador por cada nivel y cada 25 dispositivos por lazo.',
-      'Los dispositivos con doble conexión (base sonora, haz de luz) se alimentan además de un lazo de 24 VDC.',
-      'RFL: resistencia de fin de línea en los circuitos de notificación y de zona.',
-      'Cantidades y especificaciones de los módulos según planos de planta; símbolos según NFPA 170 (2018), cap. 8.'
-    ].forEach(function (t, i) {
+    NO.gen.filter(function (q) { return q.on; }).map(function (q) { return sust(q.txt); }).forEach(function (t, i) {
       var lin = partir((i + 1) + '. ' + t, 2.3, lw - 6), al = lin.length * 3.5 + 4;
       d.R(lx, yy - al, lw, al, 'FA-TABLA');
       lin.forEach(function (l, k) { d.T(lx + 3, yy - 5 - k * 3.5, l, 2.3, 'FA-TEXTO'); });
@@ -883,7 +934,7 @@
 
   /* ---------- API ---------- */
   global.Lamina = {
-    hojas: hojas, dxfHojas: dxfHojas, htmlHojas: htmlHojas,
+    hojas: hojas, dxfHojas: dxfHojas, htmlHojas: htmlHojas, notasDUBase: notasDUBase,
     Dib: Dib, SIM: SIM, simboloDe: simboloDe, caja: caja, lamina: lamina, aSVG: aSVG, aDXF: aDXF,
     matrizBase: matrizBase, importarArchivo: importarArchivo, matrizDeGrid: matrizDeGrid,
     CAPAS: CAPAS
