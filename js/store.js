@@ -58,6 +58,7 @@
             if ((d.iEspera === null || d.iEspera === undefined) && x.iEspera !== null) { d.iEspera = x.iEspera; llena = true; }
             if ((d.iAlarma === null || d.iAlarma === undefined) && x.iAlarma !== null) { d.iAlarma = x.iAlarma; llena = true; }
             if (llena) d.obs = x.obs;
+            if (x.circuito2 && !d.circuito2) d.circuito2 = x.circuito2;
           });
         });
         c.baseVersion = base.version;

@@ -132,12 +132,12 @@
       c.desc = c.desc || '';
     });
     delete p.caida.categorias;
-    p.paneles.concat(p.fuentes).forEach(function (e) { e.filas = e.filas || []; e.filas.forEach(function (f) { f.circ = f.circ || ''; }); });
+    p.paneles.concat(p.fuentes).forEach(function (e) { e.filas = e.filas || []; e.filas.forEach(function (f) { f.circ = f.circ || ''; f.circ2 = f.circ2 || ''; }); });
     return p;
   }
 
   function nuevaFila(fab, zona, circ) {
-    return { id: uid('r'), fab: fab || S.proy.fabricante, disp: '', zona: zona || '', circ: circ || '', cant: null, iEsp: null, iAlm: null, obs: '' };
+    return { id: uid('r'), fab: fab || S.proy.fabricante, disp: '', zona: zona || '', circ: circ || '', circ2: '', cant: null, iEsp: null, iAlm: null, obs: '' };
   }
 
   function tipoPorNombre(nombre) {
@@ -211,8 +211,8 @@
   function etiquetaTipo(t) { return t === '24VDC' ? '24 VDC' : (t === 'VOCEO' ? 'Voceo' : (t === 'NAC+VOCEO' ? 'NAC + Voceo' : t)); }
   function optsTiposLazo(sel) { return opts(Calc.TIPOS_LAZO.map(function (t) { return { v: t, l: etiquetaTipo(t) }; }), sel); }
   function lazosDe(eqId) { return S.proy.caida.circuitos.filter(function (c) { return c.fuente === eqId; }); }
-  function optsLazos(eq, sel) {
-    var h = '<option value="">— sin lazo —</option>' + lazosDe(eq.id).map(function (c) {
+  function optsLazos(eq, sel, tipo) {
+    var h = '<option value="">— sin lazo —</option>' + lazosDe(eq.id).filter(function (c) { return !tipo || c.tipo === tipo; }).map(function (c) {
       return '<option value="' + esc(c.id) + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.circuito) + (c.nivel ? ' · ' + esc(c.nivel) : '') + '</option>';
     }).join('');
     if (sel && !porId(S.proy.caida.circuitos, sel)) h += '<option value="' + esc(sel) + '" selected>(lazo eliminado)</option>';
@@ -221,7 +221,7 @@
   function quitarLazos(eqId) {
     var ids = lazosDe(eqId).map(function (c) { return c.id; });
     S.proy.caida.circuitos = S.proy.caida.circuitos.filter(function (c) { return ids.indexOf(c.id) < 0; });
-    S.proy.paneles.concat(S.proy.fuentes).forEach(function (e) { e.filas.forEach(function (f) { if (ids.indexOf(f.circ) >= 0) f.circ = ''; }); });
+    S.proy.paneles.concat(S.proy.fuentes).forEach(function (e) { e.filas.forEach(function (f) { if (ids.indexOf(f.circ) >= 0) f.circ = ''; if (ids.indexOf(f.circ2) >= 0) f.circ2 = ''; }); });
   }
   function buscarCable(modelo) {
     var c = (S.cat.cables || []).filter(function (x) { return x.modelo === modelo; })[0];
@@ -802,7 +802,9 @@
       '<td><select class="in w-xl" ' + b('disp') + ' data-re="vista">' + optsModelo(f.fab, f.disp) + '</select></td>' +
       '<td class="calc" data-out="tag:' + f.id + '"></td>' +
       '<td><select class="in w-md" ' + b('zona') + '>' + optsNiveles(f.zona) + '</select></td>' +
-      '<td><select class="in w-md" ' + b('circ') + '>' + optsLazos(equipo(ref), f.circ) + '</select></td>' +
+      '<td><select class="in w-md" ' + b('circ') + '>' + optsLazos(equipo(ref), f.circ) + '</select>' +
+      (d && d.circuito2 ? '<select class="in w-md" style="margin-top:.25rem" title="Este dispositivo también se alimenta de un lazo de ' + esc(Calc.tipoLazo2De(d)) + '" ' + b('circ2') + '>' +
+        optsLazos(equipo(ref), f.circ2, Calc.tipoLazo2De(d)).replace('— sin lazo —', '— ' + esc(etiquetaTipo(Calc.tipoLazo2De(d))) + ' —') + '</select>' : '') + '</td>' +
       '<td><input class="in w-xs" type="number" min="0" step="1" ' + b('cant', 'num') + ' value="' + fmtN(f.cant) + '" placeholder="10"></td>' +
       '<td><input class="in w-xs" type="number" step="any" ' + b('iEsp', 'num') + ' value="' + fmtN(f.iEsp) + '" placeholder="' + (d ? fmtN(d.iEspera) : '') + '"></td>' +
       '<td class="calc num" data-out="ie:' + f.id + '"></td>' +
@@ -1106,7 +1108,7 @@
       { k: 'fabricante', l: 'Fabricante', tipo: 'fab' }, { k: 'modelo', l: 'Modelo / ref.', w: 'w-sm' }, { k: 'tag', l: 'TAG', w: 'w-sm' },
       { k: 'tipo', l: 'Tipo (qué es)', w: 'w-md', list: 'dl-tipos' },
       { k: 'descripcion', l: 'Descripción', w: 'w-lg' }, { k: 'iEspera', l: 'I espera (mA)', t: 'num' }, { k: 'iAlarma', l: 'I alarma (mA)', t: 'num' },
-      { k: 'circuito', l: 'Circuito', w: 'w-sm', list: 'dl-circuitos' }, { k: 'obs', l: 'Fuente / observación', w: 'w-lg' }
+      { k: 'circuito', l: 'Circuito', w: 'w-sm', list: 'dl-circuitos' }, { k: 'circuito2', l: '2.º circuito (24 VDC)', w: 'w-sm', list: 'dl-circuitos2' }, { k: 'obs', l: 'Fuente / observación', w: 'w-lg' }
     ],
     cables: [
       { k: 'fabricante', l: 'Fabricante', w: 'w-sm' }, { k: 'modelo', l: 'Modelo', w: 'w-sm' }, { k: 'awg', l: 'AWG', t: 'num' }, { k: 'conductores', l: 'Cond.', t: 'num' },
@@ -1287,6 +1289,7 @@
     var tipos = {};
     S.cat.dispositivos.forEach(function (d) { if (d.tipo) tipos[d.tipo] = 1; });
     h.push('<datalist id="dl-tipos">' + Object.keys(tipos).sort().map(function (t) { return '<option value="' + esc(t) + '">'; }).join('') + '</datalist>');
+    h.push('<datalist id="dl-circuitos2"><option value="24VDC"></datalist>');
     h.push('<datalist id="dl-circuitos">' + Object.keys(circuitos).map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist>');
     vista.innerHTML = h.join('');
 
@@ -1371,7 +1374,7 @@
       return;
     }
     if (!el.dataset || !el.dataset.k) return;
-    if (el.dataset.o === 'fila' && el.dataset.k === 'circ' && el.value === '__nuevo__') { acciones['lazo-nuevo'](el); return; }
+    if (el.dataset.o === 'fila' && (el.dataset.k === 'circ' || el.dataset.k === 'circ2') && el.value === '__nuevo__') { acciones['lazo-nuevo'](el); return; }
     if (el.tagName === 'SELECT') aplicar(el);
     var re = el.dataset.re;
     if (re === 'vista' || re === 'all') renderVista();
@@ -1383,7 +1386,7 @@
   function nuevosIdsEquipo(e, prefijo) {
     var c = clonar(e);
     c.id = uid(prefijo);
-    c.filas.forEach(function (f) { f.id = uid('r'); f.circ = ''; });
+    c.filas.forEach(function (f) { f.id = uid('r'); f.circ = ''; f.circ2 = ''; });
     return c;
   }
 
@@ -1553,7 +1556,7 @@
       var eq = equipo(sel.dataset.eq), f = porId(eq.filas, sel.dataset.id), d = S.cx.disp[f.disp];
       dialogo({
         titulo: 'Nuevo lazo en ' + eq.tag,
-        html: '<label class="campo"><span>Tipo de lazo</span><select name="tipo">' + optsTiposLazo(Calc.tipoLazoDe(d)) + '</select></label>' +
+        html: '<label class="campo"><span>Tipo de lazo</span><select name="tipo">' + optsTiposLazo(sel.dataset.k === 'circ2' ? Calc.tipoLazo2De(d) : Calc.tipoLazoDe(d)) + '</select></label>' +
           '<label class="campo"><span>Nombre (opcional)</span><input name="nombre" placeholder="Ej.: SLC 2"></label>',
         ok: 'Crear'
       }).then(function (r) {
@@ -1562,7 +1565,7 @@
         if (r.nombre.trim()) c.circuito = r.nombre.trim();
         c.nivel = f.zona || eq.nivel || '';
         S.proy.caida.circuitos.push(c);
-        f.circ = c.id;
+        f[sel.dataset.k === 'circ2' ? 'circ2' : 'circ'] = c.id;
         proyectoCambiado(); renderVista();
         toast('Lazo ' + c.circuito + ' creado y asignado');
       });
@@ -1582,7 +1585,7 @@
     'circ-del': function (b) {
       var id = b.dataset.id;
       S.proy.caida.circuitos = S.proy.caida.circuitos.filter(function (x) { return x.id !== id; });
-      S.proy.paneles.concat(S.proy.fuentes).forEach(function (e) { e.filas.forEach(function (f) { if (f.circ === id) f.circ = ''; }); });
+      S.proy.paneles.concat(S.proy.fuentes).forEach(function (e) { e.filas.forEach(function (f) { if (f.circ === id) f.circ = ''; if (f.circ2 === id) f.circ2 = ''; }); });
       proyectoCambiado(); renderVista();
     },
 

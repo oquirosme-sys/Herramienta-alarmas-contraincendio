@@ -15,7 +15,10 @@
   // tipos de lazo en los que puede ir cada tipo de dispositivo (si no figura, no se valida)
   var LAZOS_PERMITIDOS = { 'SLC': ['SLC'], 'NAC': ['NAC', 'NAC+VOCEO'], 'IDNAC': ['IDNAC'], 'FUENTE AUX': ['24VDC', 'NAC'], 'VOCEO': ['VOCEO', 'NAC', 'NAC+VOCEO'], 'NAC+VOCEO': ['NAC+VOCEO'], 'IDC': ['IDC'], 'ZONA': ['IDC'] };
 
-  function tipoLazoDe(d) { return (d && LAZO_DE_CIRCUITO[d.circuito]) || 'NAC'; }
+  /* Dispositivos con doble conexión (p. ej. base sonora o haz de luz): van a un SLC y además a un lazo de 24 VDC (campo «circuito2» del catálogo).
+   * Para ellos el lazo principal es siempre SLC y la corriente del catálogo se carga al lazo de 24 VDC. */
+  function tipoLazoDe(d) { return d && d.circuito2 ? 'SLC' : ((d && LAZO_DE_CIRCUITO[d.circuito]) || 'NAC'); }
+  function tipoLazo2De(d) { return d && d.circuito2 ? (LAZO_DE_CIRCUITO[d.circuito2] || '24VDC') : null; }
 
   var PARAMS_DEF = {
     tEspera: 24,       // h — §10.6.7.2.1
@@ -125,9 +128,17 @@
       if (f.circ && !r.aviso) {
         var c = circs && circs[f.circ];
         if (!c) { r.aviso = 'El lazo asignado ya no existe'; r.nivel = 'warn'; }
-        else if (r.d && LAZOS_PERMITIDOS[r.d.circuito] && LAZOS_PERMITIDOS[r.d.circuito].indexOf(c.tipo) < 0) {
+        else if (r.d && r.d.circuito2 && c.tipo !== 'SLC') { r.aviso = 'Va conectado al SLC (y al lazo de ' + tipoLazo2De(r.d) + '); este lazo es ' + c.tipo; r.nivel = 'warn'; }
+        else if (r.d && !r.d.circuito2 && LAZOS_PERMITIDOS[r.d.circuito] && LAZOS_PERMITIDOS[r.d.circuito].indexOf(c.tipo) < 0) {
           r.aviso = 'Es de tipo ' + r.d.circuito + ' y el lazo es ' + c.tipo; r.nivel = 'warn';
         }
+      }
+      // doble conexión: el segundo lazo (24 VDC) también debe existir y ser del tipo correcto
+      if (r.d && r.d.circuito2 && f.circ && !r.aviso) {
+        var c2 = f.circ2 && circs && circs[f.circ2];
+        if (!f.circ2) { r.aviso = 'Asigne también el lazo de ' + tipoLazo2De(r.d) + ' (alimentación)'; r.nivel = 'warn'; }
+        else if (!c2) { r.aviso = 'El lazo de ' + tipoLazo2De(r.d) + ' asignado ya no existe'; r.nivel = 'warn'; }
+        else if (c2.tipo !== tipoLazo2De(r.d)) { r.aviso = 'La alimentación va a un lazo de ' + tipoLazo2De(r.d) + ' y este es ' + c2.tipo; r.nivel = 'warn'; }
       }
       return r;
     });
@@ -186,10 +197,15 @@
     var mapa = {};
     (proy.paneles || []).concat(proy.fuentes || []).forEach(function (eq) {
       (eq.filas || []).forEach(function (f) {
-        if (!f.circ) return;
+        if (!f.circ && !f.circ2) return;
         var r = fila(cx, f), cant = num(f.cant);
         if (!r.d || !cant) return;
-        var m = mapa[f.circ] || (mapa[f.circ] = { n: 0, iMa: 0, sinI: 0, bases: false, notif: false });
+        var dual = !!r.d.circuito2;
+        // doble conexión: el SLC solo cuenta el dispositivo; la corriente (24 V) va al lazo de alimentación
+        var lz = dual ? f.circ2 : f.circ;
+        if (dual && f.circ) { var ms = mapa[f.circ] || (mapa[f.circ] = { n: 0, iMa: 0, sinI: 0, bases: false, notif: false }); ms.n += cant; }
+        if (!lz) return;
+        var m = mapa[lz] || (mapa[lz] = { n: 0, iMa: 0, sinI: 0, bases: false, notif: false });
         m.n += cant;
         if (r.iAlmU === null) m.sinI += 1; else m.iMa += cant * r.iAlmU;
         var tag = r.d.tag || '';
@@ -280,6 +296,7 @@
   global.Calc = {
     TIPOS_LAZO: TIPOS_LAZO,
     tipoLazoDe: tipoLazoDe,
+    tipoLazo2De: tipoLazo2De,
     PARAMS_DEF: PARAMS_DEF,
     num: num,
     preparar: preparar,

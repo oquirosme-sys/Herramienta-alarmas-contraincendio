@@ -96,6 +96,7 @@ create table if not exists public.dispositivos (
   i_espera_ma      numeric,            -- mA a 24 VDC
   i_alarma_ma      numeric,            -- mA a 24 VDC
   circuito         text not null default '',
+  circuito2        text not null default '',   -- doble conexión: además del circuito, lazo de 24VDC (p. ej. bases sonoras, haz de luz)
   obs              text not null default '',
   orden            int  not null default 0,
   actualizado_en   timestamptz not null default now(),

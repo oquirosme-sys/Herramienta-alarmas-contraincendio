@@ -152,3 +152,6 @@ insert into public.baterias (id, ah, ref_simplex, ref_notifier, ref_generica, ob
 on conflict (id) do nothing;
 
 commit;
+
+-- Dispositivos con doble conexión (SLC + lazo de 24 VDC): bases sonoras, detectores CO con base audible y haz de luz
+update public.dispositivos set circuito2 = '24VDC' where id in ('d28', 'd66', 'd67', 'd68', 'd69', 'd89', 'd90', 'd92');

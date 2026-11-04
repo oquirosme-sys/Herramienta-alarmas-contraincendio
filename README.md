@@ -127,3 +127,7 @@ Pestaña **Diagrama unifilar**: genera tres láminas con los datos del proyecto 
 **Símbolos**: NFPA 170 (2018) cap. 8 — `js/simbolos-nfpa170.js` (184 símbolos) se genera con `python excel/extraer_simbolos_nfpa170.py <NFPA170_Cap8….dxf>` (requiere `pip install ezdxf`). La correspondencia TAG del catálogo → símbolo está en `SIM_TAG` de `js/lamina.js`.
 
 **Importación de la matriz**: busca la tabla con marcas «X» (o «X(4)»); la columna con más texto es la acción, una columna de números entre paréntesis es la nota, los encabezados son las señales de entrada, el texto encima son notas generales y las líneas «(n) …» debajo son las notas numeradas. Excel y Word se leen por celdas; el PDF se reconstruye por posición del texto (mejor esfuerzo: revise lo importado). Las librerías (SheetJS, mammoth, pdf.js) se cargan bajo demanda desde cdnjs, por lo que se requiere Internet al importar.
+
+## Dispositivos con doble conexión (SLC + 24 VDC)
+
+El catálogo tiene el campo opcional **«2.º circuito (24 VDC)»** (`circuito2`). Los dispositivos que lo tienen (bases sonoras SB, detectores CO con base audible y detectores de haz de luz) muestran **dos selectores de lazo** en la fila: el SLC (arriba) y el lazo de 24 VDC (abajo). El SLC cuenta el dispositivo; la corriente del catálogo se carga al lazo de 24 VDC para la caída de tensión. Si falta alguno de los dos lazos, la fila avisa. El administrador puede marcar otros dispositivos desde Administración → Dispositivos. Pendiente: el libro de Excel todavía no tiene la segunda columna de lazo.
