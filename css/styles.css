@@ -311,3 +311,13 @@ body.tabs-vert .cuerpo .pagina { flex: 1; min-width: 0; max-width: none; margin:
   body.tabs-vert .cuerpo { display: block; }
   body.tabs-vert .lateral { position: static; width: auto; max-height: none; padding: 8px 0; }
 }
+
+/* ---------- Buscador de modelos (lista flotante) ---------- */
+.combo-lista { position: fixed; z-index: 400; display: none; overflow-y: auto; background: var(--surface, #1f2125); color: var(--text, #eee);
+  border: 1px solid var(--border-strong, #555); border-radius: 8px; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); padding: 4px; }
+.combo-it { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: inherit; font: inherit; font-size: 12.5px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.combo-it:hover, .combo-it.activo { background: rgba(120, 120, 128, .22); }
+.combo-vacio { opacity: .7; }
+.combo-fab { display: inline-block; min-width: 4.8rem; font-size: 11px; font-weight: 700; color: var(--app, #8b6cf6); }
+.combo-ma { float: right; margin-left: 10px; opacity: .65; font-variant-numeric: tabular-nums; }
+.combo-mas { padding: 6px 8px; font-size: 12px; opacity: .65; }

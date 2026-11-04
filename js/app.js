@@ -859,12 +859,97 @@
     };
   }
 
+  /* ======================= buscador de modelos (escribir y filtrar) ======================= */
+  var comboEl = null, comboCtx = null, comboAct = -1;
+  function normB(t) { return String(t === null || t === undefined ? '' : t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+  function pajarDisp(d) {
+    var f = S.cx.fabricantes[d.fabricante];
+    return normB([f && f.nombre, d.modelo, d.tag, d.tipo || TIPO_BASE[d.id], d.descripcion, d.circuito].join(' '));
+  }
+  function listaCombo(q, fabActual) {
+    var tk = normB(q).split(/\s+/).filter(Boolean);
+    var l = S.cat.dispositivos.filter(function (d) { var h = pajarDisp(d); return tk.every(function (t) { return h.indexOf(t) >= 0; }); });
+    l.sort(function (a, b) { return (b.fabricante === fabActual) - (a.fabricante === fabActual); });
+    return l;
+  }
+  function pintarCombo(q) {
+    if (!comboEl || !comboCtx) return;
+    var eq = equipo(comboCtx.eq), f = eq && porId(eq.filas, comboCtx.id), fab = f ? f.fab : '';
+    var l = listaCombo(q, fab), max = 60;
+    comboAct = -1;
+    comboEl.innerHTML = '<button type="button" data-did="" class="combo-it combo-vacio">— sin modelo (0 mA) —</button>' + l.slice(0, max).map(function (d) {
+      var fn = S.cx.fabricantes[d.fabricante];
+      return '<button type="button" data-did="' + esc(d.id) + '" class="combo-it"><span class="combo-fab">' + esc(fn ? fn.nombre : '') + '</span> ' + esc(etiquetaDisp(d)) +
+        ' <span class="combo-ma">' + (d.iAlarma === null || d.iAlarma === undefined ? 'sin dato' : fmt(d.iAlarma, 1) + ' mA') + '</span></button>';
+    }).join('') + (l.length > max ? '<div class="combo-mas">' + (l.length - max) + ' más: siga escribiendo para afinar</div>' : '') + (!l.length ? '<div class="combo-mas">Sin resultados para «' + esc(q) + '»</div>' : '');
+  }
+  function abrirCombo(inp) {
+    if (!comboEl) {
+      comboEl = document.createElement('div'); comboEl.id = 'comboLista'; comboEl.className = 'combo-lista'; document.body.appendChild(comboEl);
+      comboEl.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        var b = e.target.closest('[data-did]');
+        if (b && comboCtx) elegirDisp(comboCtx.eq, comboCtx.id, b.getAttribute('data-did'));
+      });
+    }
+    comboCtx = { inp: inp, eq: inp.getAttribute('data-eq'), id: inp.getAttribute('data-id') };
+    var r = inp.getBoundingClientRect();
+    comboEl.style.left = Math.max(4, Math.min(r.left, window.innerWidth - 560)) + 'px';
+    comboEl.style.top = (r.bottom + 2) + 'px';
+    comboEl.style.minWidth = Math.max(r.width, 520) + 'px';
+    comboEl.style.maxHeight = Math.max(160, window.innerHeight - r.bottom - 16) + 'px';
+    comboEl.style.display = 'block';
+    pintarCombo(inp.value === inp.getAttribute('data-label') ? '' : inp.value);
+  }
+  function cerrarCombo() {
+    if (comboEl) comboEl.style.display = 'none';
+    if (comboCtx && comboCtx.inp) comboCtx.inp.value = comboCtx.inp.getAttribute('data-label') || '';
+    comboCtx = null;
+  }
+  function elegirDisp(eqRef, filaId, did) {
+    var eq = equipo(eqRef), f = eq && porId(eq.filas, filaId), d = did ? S.cx.disp[did] : null;
+    if (!f) return;
+    f.disp = did || '';
+    if (d) f.fab = d.fabricante;
+    f.iEsp = null; f.iAlm = null;
+    if (comboEl) comboEl.style.display = 'none';
+    comboCtx = null;
+    proyectoCambiado(); renderVista();
+  }
+  document.addEventListener('focusin', function (e) {
+    var t = e.target;
+    if (t && t.getAttribute && t.getAttribute('data-combo')) { t.select(); abrirCombo(t); }
+  });
+  document.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t && t.getAttribute && t.getAttribute('data-combo')) { if (!comboCtx || comboCtx.inp !== t) abrirCombo(t); pintarCombo(t.value); }
+  });
+  document.addEventListener('focusout', function (e) {
+    var t = e.target;
+    if (t && t.getAttribute && t.getAttribute('data-combo')) setTimeout(function () { if (comboCtx && comboCtx.inp === t) cerrarCombo(); }, 120);
+  });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (!t || !t.getAttribute || !t.getAttribute('data-combo') || !comboCtx) return;
+    var its = comboEl ? [].slice.call(comboEl.querySelectorAll('.combo-it')) : [];
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      comboAct = Math.max(0, Math.min(its.length - 1, comboAct + (e.key === 'ArrowDown' ? 1 : -1)));
+      its.forEach(function (b, i) { b.classList.toggle('activo', i === comboAct); });
+      if (its[comboAct]) its[comboAct].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      var b = its[comboAct >= 0 ? comboAct : (its.length > 1 ? 1 : 0)];
+      if (b) elegirDisp(comboCtx.eq, comboCtx.id, b.getAttribute('data-did'));
+    } else if (e.key === 'Escape') { cerrarCombo(); t.blur(); }
+  });
+
   function filaHTML(ref, f, i) {
     var d = S.cx.disp[f.disp];
     var b = function (k, t) { return 'data-o="fila" data-eq="' + esc(ref) + '" data-id="' + esc(f.id) + '" data-k="' + k + '"' + (t ? ' data-t="' + t + '"' : ''); };
     return '<tr data-fila="' + esc(f.id) + '"><td class="idx">' + (i + 1) + '</td>' +
       '<td><select class="in w-sm" ' + b('fab') + ' data-re="vista">' + optsFabricantes(f.fab) + '</select></td>' +
-      '<td><select class="in w-xl" ' + b('disp') + ' data-re="vista">' + optsModelo(f.fab, f.disp) + '</select></td>' +
+      '<td><input class="in w-xl" type="text" autocomplete="off" data-combo="1" data-eq="' + esc(ref) + '" data-id="' + esc(f.id) + '" data-label="' + esc(d ? etiquetaDisp(d) : '') + '" value="' + esc(d ? etiquetaDisp(d) : '') + '" placeholder="— escriba para buscar: modelo, tag, descripción, fabricante —" title="Escriba para filtrar (por ejemplo: jack, estrobo, 4098, CO)"></td>' +
       '<td class="calc" data-out="tag:' + f.id + '"></td>' +
       '<td><select class="in w-md" ' + b('zona') + '>' + optsNiveles(f.zona) + '</select></td>' +
       '<td><select class="in w-md" ' + b('circ') + '>' + optsLazos(equipo(ref), f.circ) + '</select>' +
@@ -1239,16 +1324,34 @@
     S.lamZoom = zoom; S.lamAjustar = ajustar;
     ver();
     svg.addEventListener('wheel', function (e) { e.preventDefault(); zoom(e.deltaY < 0 ? 1.18 : 1 / 1.18, aPunto(e.clientX, e.clientY)); }, { passive: false });
-    var arr = null;
+    var arr = null, mov = null;
     svg.addEventListener('pointerdown', function (e) {
+      var tx = e.target.closest && e.target.closest('[data-mid]');
+      if (tx) { mov = { id: tx.getAttribute('data-mid'), el: tx, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 }; svg.setPointerCapture(e.pointerId); return; }   // mover un texto
       arr = { x: e.clientX, y: e.clientY }; svg.setPointerCapture(e.pointerId); svg.style.cursor = 'grabbing';
     });
     svg.addEventListener('pointermove', function (e) {
+      if (mov) {
+        var rm = svg.getBoundingClientRect(), em = Math.max(v.w / rm.width, v.h / rm.height);
+        mov.dx = (e.clientX - mov.x0) * em; mov.dy = (e.clientY - mov.y0) * em;
+        mov.el.setAttribute('transform', 'translate(' + mov.dx.toFixed(2) + ' ' + mov.dy.toFixed(2) + ')');
+        return;
+      }
       if (!arr) return;
       var r = svg.getBoundingClientRect(), esc = Math.max(v.w / r.width, v.h / r.height);
       v.x -= (e.clientX - arr.x) * esc; v.y -= (e.clientY - arr.y) * esc; arr = { x: e.clientX, y: e.clientY }; ver();
     });
-    function soltar() { arr = null; svg.style.cursor = 'grab'; }
+    function soltar() {
+      arr = null; svg.style.cursor = 'grab';
+      if (mov) {
+        var m = mov; mov = null;
+        if (Math.abs(m.dx) + Math.abs(m.dy) > 0.2) {
+          var MV = S.proy.duMov || (S.proy.duMov = {}), o = MV[m.id] || [0, 0];
+          MV[m.id] = [o[0] + m.dx, o[1] - m.dy];      // en el dibujo Y crece hacia arriba
+          proyectoCambiado(); pintarLamina();
+        }
+      }
+    }
     svg.addEventListener('pointerup', soltar); svg.addEventListener('pointercancel', soltar);
     svg.addEventListener('dblclick', ajustar);
   }
@@ -1337,7 +1440,8 @@
       '<button class="btn" data-act="lam-pdf-hojas">🖨 PDF en láminas con cajetín</button></div></div>';
     if (S.lam === 'matriz') h += editorMatriz();
     h += '<div class="card"><div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem"><h2 style="margin:0;flex:1">Vista previa</h2>' +
-      '<span class="muted" style="font-size:.85em">Rueda = zoom · arrastre = mover (✋) · doble clic = ajustar</span>' +
+      '<span class="muted" style="font-size:.85em">Rueda = zoom · arrastre = mover (✋) · doble clic = ajustar · arrastre un texto del diagrama para reubicarlo</span>' +
+      '<button class="btn btn-sm" data-act="mov-reset" title="Devuelve los textos movidos a su posición original">Restablecer textos</button>' +
       '<button class="btn btn-sm" data-act="z-out" title="Alejar">−</button><span id="lamZoomTxt" style="min-width:3.2rem;text-align:center">100 %</span>' +
       '<button class="btn btn-sm" data-act="z-in" title="Acercar">＋</button><button class="btn btn-sm" data-act="z-fit" title="Ajustar a la ventana">Ajustar</button></div>' +
       '<div id="laminaVista" style="height:72vh;overflow:hidden;background:#fff;border:1px solid var(--line,#ccc);border-radius:6px;cursor:grab"></div></div>';
@@ -1686,7 +1790,7 @@
       var ult = eq.filas[eq.filas.length - 1];
       for (var i = 0; i < n; i++) eq.filas.push(nuevaFila(ult ? ult.fab : S.proy.fabricante, ult ? ult.zona : eq.nivel, ult ? ult.circ : ''));
       proyectoCambiado(); renderVista();
-      var sel = vista.querySelectorAll('select[data-k="disp"]');
+      var sel = vista.querySelectorAll('input[data-combo]');
       if (sel.length) sel[sel.length - n].focus();
     },
     'fila-dup': function (b) {
@@ -1827,6 +1931,7 @@
         if (!ok) return; S.proy.notasDU = Lamina.notasDUBase(); proyectoCambiado(); renderVista();
       });
     },
+    'mov-reset': function () { S.proy.duMov = {}; proyectoCambiado(); pintarLamina(); toast('Textos en su posición original'); },
     'z-in': function () { if (S.lamZoom) S.lamZoom(1.3); },
     'z-out': function () { if (S.lamZoom) S.lamZoom(1 / 1.3); },
     'z-fit': function () { if (S.lamAjustar) S.lamAjustar(); },

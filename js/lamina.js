@@ -115,16 +115,21 @@
   }
 
   /* ---------- modelo de dibujo ---------- */
-  function Dib(w, h) { this.w = w; this.h = h; this.e = []; }
+  var TEXTO_MIN = 2.2;   // altura mínima de texto (mm); tras la escala de lámina nunca baja de 2 mm
+  var FUENTE = "'Century Gothic', Montserrat, Arial, Helvetica, sans-serif";
+  function Dib(w, h) { this.w = w; this.h = h; this.e = []; this.mov = {}; }
   Dib.prototype = {
     L: function (x1, y1, x2, y2, capa, ancho) { var e = { k: 'L', a: [x1, y1, x2, y2], c: capa || 'FA-TEXTO' }; if (ancho) e.w = ancho; this.e.push(e); return this; },
     P: function (pts, cerr, capa, relleno) { this.e.push({ k: 'P', p: pts, z: !!cerr, c: capa || 'FA-TEXTO', f: !!relleno }); return this; },
     C: function (x, y, r, capa) { this.e.push({ k: 'C', a: [x, y, r], c: capa || 'FA-TEXTO' }); return this; },
     R: function (x, y, w, h, capa, relleno) { return this.P([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], true, capa, relleno); },
     /* al: 'l' | 'c' | 'r'; rot en grados */
-    T: function (x, y, txt, h, capa, al, rot) {
+    T: function (x, y, txt, h, capa, al, rot, id) {
       if (txt === null || txt === undefined || txt === '') return this;
-      this.e.push({ k: 'T', a: [x, y], t: String(txt), h: h || 2.5, c: capa || 'FA-TEXTO', al: al || 'l', r: rot || 0 }); return this;
+      var mv = id && this.mov && this.mov[id] ? this.mov[id] : null;      // posición movida por el usuario (mm)
+      var e = { k: 'T', a: [x + (mv ? mv[0] : 0), y + (mv ? mv[1] : 0)], t: String(txt), h: Math.max(h || 2.5, TEXTO_MIN), c: capa || 'FA-TEXTO', al: al || 'l', r: rot || 0 };
+      if (id) e.id = id;
+      this.e.push(e); return this;
     },
     /* inserta un símbolo NFPA 170 centrado en (x,y) con escala s (el símbolo se explota en primitivas) */
     S: function (id, x, y, s, capa) {
@@ -140,11 +145,11 @@
       });
       return this;
     },
-    ancho: function (txt, h) { return String(txt).length * (h || 2.5) * 0.62; }
+    ancho: function (txt, h) { return String(txt).length * (h || 2.5) * 0.72; }
   };
 
   function partir(txt, h, maxAncho) {
-    var max = Math.max(4, Math.floor(maxAncho / (h * 0.62))), pal = String(txt || '').split(/\s+/), lin = [], cur = '';
+    var max = Math.max(4, Math.floor(maxAncho / (Math.max(h, TEXTO_MIN) * 0.72))), pal = String(txt || '').split(/\s+/), lin = [], cur = '';
     pal.forEach(function (p) {
       if ((cur + ' ' + p).trim().length > max && cur) { lin.push(cur); cur = p; } else cur = (cur + ' ' + p).trim();
     });
@@ -164,11 +169,11 @@
       else if (e.k === 'P') o.push('<' + (e.z ? 'polygon' : 'polyline') + ' points="' + e.p.map(function (q) { return q[0].toFixed(2) + ',' + (H - q[1]).toFixed(2); }).join(' ') + '" fill="' + (e.f ? c : 'none') + '" stroke="' + c + '"/>');
       else if (e.k === 'T') {
         var x = e.a[0], y = H - e.a[1];
-        o.push('<text x="' + x.toFixed(2) + '" y="' + y.toFixed(2) + '" font-size="' + e.h.toFixed(2) + '" fill="' + c + '" stroke="none" text-anchor="' + ({ l: 'start', c: 'middle', r: 'end' }[e.al]) + '"' +
+        o.push('<text' + (e.id ? ' data-mid="' + xml(e.id) + '" style="cursor:move"' : '') + ' x="' + x.toFixed(2) + '" y="' + y.toFixed(2) + '" font-size="' + (e.h / 0.72).toFixed(2) + '" fill="' + c + '" stroke="none" text-anchor="' + ({ l: 'start', c: 'middle', r: 'end' }[e.al]) + '"' +
           (e.r ? ' transform="rotate(' + (-e.r) + ' ' + x.toFixed(2) + ' ' + y.toFixed(2) + ')"' : '') + '>' + xml(e.t) + '</text>');
       }
     });
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + d.w + ' ' + d.h + '" font-family="Arial, Helvetica, sans-serif" style="background:#fff">' +
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + d.w + ' ' + d.h + '" font-family="' + FUENTE.replace(/"/g, '') + '" style="background:#fff">' +
       '<g stroke-width="0.25" stroke-linejoin="round">' + o.join('') + '</g></svg>';
   }
 
@@ -187,7 +192,8 @@
     g(0, 'TABLE'); g(2, 'LAYER'); g(70, Object.keys(capas).length);
     Object.keys(capas).forEach(function (c) { g(0, 'LAYER'); g(2, c); g(70, 0); g(62, (CAPAS[c] || CAPAS['FA-TEXTO'])[0]); g(6, 'CONTINUOUS'); });
     g(0, 'ENDTAB');
-    g(0, 'TABLE'); g(2, 'STYLE'); g(70, 1); g(0, 'STYLE'); g(2, 'STANDARD'); g(70, 0); g(40, 0); g(41, 1); g(50, 0); g(71, 0); g(42, 2.5); g(3, 'txt'); g(4, ''); g(0, 'ENDTAB');
+    g(0, 'TABLE'); g(2, 'STYLE'); g(70, 2); g(0, 'STYLE'); g(2, 'STANDARD'); g(70, 0); g(40, 0); g(41, 1); g(50, 0); g(71, 0); g(42, 2.5); g(3, 'txt'); g(4, '');
+    g(0, 'STYLE'); g(2, 'CENTURY'); g(70, 0); g(40, 0); g(41, 1); g(50, 0); g(71, 0); g(42, 2.5); g(3, 'GOTHIC.TTF'); g(4, ''); g(0, 'ENDTAB');
     g(0, 'ENDSEC');
     g(0, 'SECTION'); g(2, 'ENTITIES');
     d.e.forEach(function (e) {
@@ -208,7 +214,7 @@
       } else if (e.k === 'T') {
         g(0, 'TEXT'); g(8, e.c); g(10, n(e.a[0])); g(20, n(e.a[1])); g(30, 0); g(40, n(e.h)); g(1, txt(e.t));
         if (e.r) g(50, n(e.r));
-        g(7, 'STANDARD');
+        g(41, 0.95); g(7, 'CENTURY');
         if (e.al !== 'l') { g(72, e.al === 'c' ? 1 : 2); g(11, n(e.a[0])); g(21, n(e.a[1])); g(31, 0); g(73, 0); }
       }
     });
@@ -412,7 +418,7 @@
         { id: 'nc2', on: true, capa: 'FA-NAC', txt: 'LAZO DE NOTIFICACIÓN Y VOCEO. CIRCUITO DE NOTIFICACIÓN, 2x16 AWG SÓLIDO (SOLO NAC), 2x2x16 AWG SÓLIDO (NAC+VOCEO), NAC=SIN PANTALLA, VOCEO=CON PANTALLA, ESPECIFICACIÓN NEC/UL=FPLR, FORRO COLOR ROJO, 300V, EN TUBERÍA EMT LISTADA UL O EL INDICADO EN DIAGRAMA UNIFILAR. CABLE CONTRA HUMEDAD EN EXTERIORES VER REFERENCIA. IGUAL O SUPERIOR A REFERENCIA:\nNAC= {NAC}\nVOCEO= {VOCEO}\nEXTERIORES= WEST PENN AQ225' },
         { id: 'nc3', on: true, capa: 'FA-24VDC', txt: 'CIRCUITO DE 24VDC PERMANENTES, 2x16 AWG SÓLIDO, SIN PANTALLA, ESPECIFICACIÓN NEC/UL=FPLR, FORRO COLOR ROJO, 300V, IGUAL O SUPERIOR A REFERENCIA, EN TUBERÍA EMT LISTADA UL (VER TABLA CANALIZACIONES). O EL INDICADO EN DIAGRAMA UNIFILAR. CABLE CONTRA HUMEDAD EN EXTERIORES VER REFERENCIA. IGUAL O SUPERIOR A REFERENCIA:\n24VDC= {24VDC}\nEXTERIORES= WEST PENN AQ225' },
         { id: 'nc4', on: false, capa: 'FA-TELEFONO', txt: 'LAZO DE TELÉFONOS' },
-        { id: 'nc5', on: false, capa: 'FA-RED', txt: 'CIRCUITO DE RED O COMUNICACIÓN, 4x16 AWG SÓLIDO, CON PANTALLA, ESPECIFICACIÓN NEC/UL=FPLR, FORRO COLOR ROJO, IGUAL O SUPERIOR A REFERENCIA, EN TUBERÍA EMT LISTADA UL (VER TABLA CANALIZACIONES), UN PAR PARA DATOS, UN PAR PARA AUDIO. O EL INDICADO EN DIAGRAMA UNIFILAR. CABLE CONTRA HUMEDAD EN EXTERIORES VER REFERENCIA. IGUAL O SUPERIOR A REFERENCIA:\nRED COBRE= {SLC}\nRED FO= VER PLANOS DE ITS\nEXTERIORES= WEST PENN AQ225' }
+        { id: 'nc5', on: true, capa: 'FA-RED', txt: 'CIRCUITO DE RED O COMUNICACIÓN, 4x16 AWG SÓLIDO, CON PANTALLA, ESPECIFICACIÓN NEC/UL=FPLR, FORRO COLOR ROJO, IGUAL O SUPERIOR A REFERENCIA, EN TUBERÍA EMT LISTADA UL (VER TABLA CANALIZACIONES), UN PAR PARA DATOS, UN PAR PARA AUDIO. O EL INDICADO EN DIAGRAMA UNIFILAR. CABLE CONTRA HUMEDAD EN EXTERIORES VER REFERENCIA. IGUAL O SUPERIOR A REFERENCIA:\nRED COBRE= {SLC}\nRED FO= VER PLANOS DE ITS\nEXTERIORES= WEST PENN AQ225' }
       ],
       gen: [
         g('Panel con circuito dedicado 120 VAC/20 A mediante interruptor aprobado con opción de bloqueo, de acuerdo con NFPA 72 §10.6.5.4.'),
@@ -523,11 +529,11 @@
     // separadores y nombres de nivel
     niveles.forEach(function (n, i) {
       d.L(x0 + 215 - 10, yb[i], xEnd, yb[i], 'FA-TABLA');
-      d.T(xEnd, yb[i] + 3, String(n), 5, 'FA-TEXTO', 'r');
+      d.T(xEnd, yb[i] + 3, String(n), 5, 'FA-TEXTO', 'r', 0, 'nv:' + n);
     });
 
     // cajas de equipos (transponder, fuente, amplificador) en el nivel donde están
-    var stubs = {}, colEq = {};
+    var stubs = {}, colEq = {}, cajas = {};
     equipos.forEach(function (eq, ie) {
       if (eq === facp) return;
       var i = Math.max(0, idxNivel(eq.nivel)), n = (colEq[i] = (colEq[i] || 0) + 1) - 1;
@@ -539,6 +545,7 @@
       var rr = (RP.paneles.concat(RP.fuentes).filter(function (x) { return (x.p || x.f) === eq; })[0] || {}).r;
       d.T(bx + 40, by + 4, rr && rr.bat && rr.bat.ah !== null ? 'Batería ' + fmt(rr.bat.ah, 1) + ' Ah' : '', 2.3, 'FA-TEXTO', 'c');
       stubs[eq.id] = { x: bx + 80, y: by + 20, n: 0 };
+      cajas[eq.id] = { bx: bx, by: by };
     });
     // FACP con módulos
     d.R(fx, fy, fw, fh, 'FA-SIMBOLOS');
@@ -554,6 +561,27 @@
     }
     d.T(fx + fw / 2, fy + 8, (facp ? facp.tag : 'FACP') + ' · ' + ((cx.fabricantes && cx.fabricantes[P.fabricante]) ? cx.fabricantes[P.fabricante].nombre : ''), 2.8, 'FA-TEXTO', 'c');
     if (facp) stubs[facp.id] = { x: fx + fw, y: fy + fh - 8, n: 0, paso: 6 };
+
+    /* ---- red de comunicación: del FACP a los transponders, fuentes y amplificadores de los demás niveles ---- */
+    var hayRed = false;
+    if (facp) {
+      var cs = equipos.filter(function (e) { return e !== facp && cajas[e.id]; });
+      if (cs.length) {
+        hayRed = true;
+        var xt = x0 + 10, yAlto = Math.max.apply(null, cs.map(function (e) { return cajas[e.id].by + 12; }));
+        d.L(xt, fy + fh, xt, yAlto, 'FA-RED');
+        d.T(xt, yAlto + 5, 'RED', 2.6, 'FA-RED', 'c', 0, 'rd:red');
+        cs.forEach(function (e) {
+          var cj = cajas[e.id], yb2 = cj.by + 12, padre = e.panelId && e.panelId !== facp.id ? eqDe(e.panelId) : null;
+          d.L(xt, yb2, cj.bx - 3.2, yb2, 'FA-RED');
+          d.P([[cj.bx, yb2], [cj.bx - 3.2, yb2 + 1.5], [cj.bx - 3.2, yb2 - 1.5]], true, 'FA-RED', true);
+          d.P([[xt - 0.9, yb2 - 0.9], [xt + 0.9, yb2 - 0.9], [xt + 0.9, yb2 + 0.9], [xt - 0.9, yb2 + 0.9]], true, 'FA-RED', true);   // derivación
+          if (padre) d.T(cj.bx - 4, yb2 + 2.2, 'desde ' + (padre.tag || ''), 2.2, 'FA-RED', 'r', 0, 'rd:' + e.id);
+        });
+        // el tronco sale por el borde superior del FACP
+        d.T(xt + 3, fy + fh + 4, 'RED / COMUNICACIÓN', 2.2, 'FA-RED', 'l', 0, 'rd:tit');
+      }
+    }
 
     /* ---- orden de los montantes con el menor número de cruces ----
      * Un renglón cruza los montantes que están a su derecha y cubren su altura; la salida de un equipo cruza los que están a su izquierda. */
@@ -632,13 +660,13 @@
         var xs = key ? xR[key] : xChain - 30, xFin = xEndCad, esA = !!c && c.clase === 'A' && f.tipo !== '24VDC';
         hLinea(xs, xFin, y, capa, key);
         d.P([[xs, y], [xs + 3.2, y + 1.6], [xs + 3.2, y - 1.6]], true, capa, true);
-        d.T(xChain - 4, y + 2, c ? c.circuito + (esA ? ' (clase A)' : '') : '(sin lazo asignado)', 2.8, c ? capa : 'FA-ALERTA', 'r');
+        d.T(xChain - 4, y + 2, c ? c.circuito + (esA ? ' (clase A)' : '') : '(sin lazo asignado)', 2.8, c ? capa : 'FA-ALERTA', 'r', 0, 'lz:' + (c ? c.id : 'sl' + i + '_' + k));
         f.g.forEach(function (it, j) {
           var x = xChain + j * PASO + PASO / 2, sid = simboloDe(it.dsp), cb = caja(SIM[sid] || SIM.FA001), esc = Math.min(ESC, 11 / Math.max(cb.w, cb.h)), top = cb.h * esc / 2;
           d.S(sid, x, y, esc, 'FA-SIMBOLOS');
           d.C(x, y + top + 4.6, 2.2, 'FA-TEXTO'); d.L(x, y + top + 2.4, x, y + top, 'FA-TEXTO');
           d.T(x, y + top + 3.8, numDe[claveSimb(it.dsp)], 2.2, 'FA-TEXTO', 'c');
-          d.T(x, y - top - 3.4, '×' + it.cant, 2.4, 'FA-TEXTO', 'c');
+          d.T(x, y - top - 3.4, '×' + it.cant, 2.4, 'FA-TEXTO', 'c', 0, 'ct:' + (c ? c.id : 'sl' + i + '_' + k) + ':' + it.dsp.id);
         });
         if (!f.g.length && c) d.T(xChain + 4, y + 1, 'sin dispositivos asignados', 2.4, 'FA-ALERTA');
         if (esA) {
@@ -651,9 +679,9 @@
         } else if (/NAC|VOCEO|IDC/.test(f.tipo) && f.tipo !== '24VDC') { d.R(xFin + 2, y - 2.6, 10, 5.2, 'FA-SIMBOLOS'); d.T(xFin + 7, y - 1, 'RFL', 2.4, 'FA-TEXTO', 'c'); }
         if (c) {
           var r = res[c.id], cab = c.cable ? cx.cables[c.cable] : null, nd = r ? r.n : 0;
-          d.T(xInfo, y + 2.2, nd + ' disp. · ' + (r && r.iMa !== null ? fmt(r.iMa, 0) + ' mA' : 'sin corriente') + (c.long ? ' · ' + fmt(c.long, 0) + ' m' : '') + (cab ? ' · ' + cab.modelo + ' ' + cab.awg + ' AWG' : '') + (esA ? ' · Clase A' : (f.tipo === '24VDC' ? '' : ' · Clase B')), 2.4, 'FA-TEXTO');
+          d.T(xInfo, y + 2.2, nd + ' disp. · ' + (r && r.iMa !== null ? fmt(r.iMa, 0) + ' mA' : 'sin corriente') + (c.long ? ' · ' + fmt(c.long, 0) + ' m' : '') + (cab ? ' · ' + cab.modelo + ' ' + cab.awg + ' AWG' : '') + (esA ? ' · Clase A' : (f.tipo === '24VDC' ? '' : ' · Clase B')), 2.4, 'FA-TEXTO', 'l', 0, 'in1:' + c.id);
           d.T(xInfo, y - 2.2, r && r.caida !== null ? 'ΔV ' + fmt(r.caida, 2) + ' V → ' + fmt(r.vDisp, 2) + ' V en el último dispositivo · ' + r.estado : (r && r.estado ? r.estado : 'falta cable o longitud'),
-            2.4, r && /ERROR|INCOMPLETO/.test(r.estado || '') ? 'FA-ALERTA' : 'FA-TEXTO');
+            2.4, r && /ERROR|INCOMPLETO/.test(r.estado || '') ? 'FA-ALERTA' : 'FA-TEXTO', 'l', 0, 'in2:' + c.id);
         }
       });
     });
@@ -661,7 +689,7 @@
     llaves.forEach(function (k) {
       var capa = CAPA_DE_TIPO[k.split('|')[1]], s = info[k];
       d.L(xR[k], s.min, xR[k], s.max, capa);
-      d.T(xR[k], s.max + 4, (k.split('|')[1] === '24VDC' ? '24 VDC' : k.split('|')[1]), 2.2, capa, 'c', 90);
+      d.T(xR[k], s.max + 4.5 + (llaves.indexOf(k) % 2) * 5, (k.split('|')[1] === '24VDC' ? '24 VDC' : k.split('|')[1]), 2.4, capa, 'c', 0, 'rs:' + k);
       if (claseA[k]) {
         var xr = xR[k] + 3.6, ysR = claseA[k].concat([s.y0 - 2.4]);
         d.L(xr, Math.min.apply(null, ysR), xr, Math.max.apply(null, ysR), capa);
@@ -778,6 +806,7 @@
   function lamina(tipo, ctx) {
     var M = ctx.proy.matriz || matrizBase();
     var d = new Dib(0, 0), r;
+    d.mov = (ctx.proy && ctx.proy.duMov) || {};
     if (tipo === 'du') r = dibujarDU(d, ctx, 20, 700);
     else if (tipo === 'matriz') r = dibujarMatriz(d, M, 20, 700);
     else if (tipo === 'simb') r = dibujarSimb(d, ctx, 20, 700);
@@ -1050,7 +1079,7 @@
       d.e.forEach(function (e) {
         if (e.k === 'L') { var s = recorta(e.a[0], e.a[1], e.a[2], e.a[3], ya, yb); if (s) h.L(X(s[0]), Y(s[1]), X(s[2]), Y(s[3]), e.c); }
         else if (e.k === 'C') { if (e.a[1] <= ya && e.a[1] > yb) h.C(X(e.a[0]), Y(e.a[1]), e.a[2] * esc, e.c); }
-        else if (e.k === 'T') { if (e.a[1] <= ya && e.a[1] > yb) h.T(X(e.a[0]), Y(e.a[1]), e.t, e.h * esc, e.c, e.al, e.r); }
+        else if (e.k === 'T') { if (e.a[1] <= ya && e.a[1] > yb) h.T(X(e.a[0]), Y(e.a[1]), e.t, Math.max(2, e.h * esc), e.c, e.al, e.r); }
         else if (e.k === 'P') {
           if (e.f) { var cy = e.p.reduce(function (a, q) { return a + q[1]; }, 0) / e.p.length; if (cy <= ya && cy > yb) h.P(e.p.map(function (q) { return [X(q[0]), Y(q[1])]; }), e.z, e.c, true); }
           else {
