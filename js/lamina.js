@@ -619,7 +619,7 @@
         if (!f.c) return;
         var key = origen(f.c) + '|' + f.c.tipo, y = yFila(i, k);
         rowsList.push({ key: key, y: y });
-        if (f.c.clase === 'A' && f.tipo !== '24VDC') rowsList.push({ key: key, y: y - 12.6 });
+        if (f.c.clase === 'A' && f.tipo !== '24VDC') rowsList.push({ key: key, y: y - 12.6, ret: 1 });
       });
     });
     function y0s(orden) {
@@ -687,10 +687,27 @@
       }
     }
 
+    // flecha de sentido (la punta queda en x,y); dir: r, l, u, d
+    function flecha(x, y, dir, capa) {
+      var L = 2.8, H = 1.2, p;
+      if (dir === 'r') p = [[x, y], [x - L, y + H], [x - L, y - H]];
+      else if (dir === 'l') p = [[x, y], [x + L, y + H], [x + L, y - H]];
+      else if (dir === 'u') p = [[x, y], [x - H, y - L], [x + H, y - L]];
+      else p = [[x, y], [x - H, y + L], [x + H, y + L]];
+      d.P(p, true, capa, true);
+    }
+    // ¿hay espacio para una flecha en (x,y) sin cruzar con un montante (que no sea el propio) ni con un hueco de símbolo?
+    function libre(x, y, kk, huecos) {
+      if (llaves.some(function (k2) { return k2 !== kk && Math.abs(xR[k2] - x) < 4.5 && info[k2].min < y && info[k2].max > y; })) return false;
+      return !(huecos || []).some(function (hh) { return x > hh[0] - 3.5 && x < hh[1] + 3.5; });
+    }
+
     // salida de cada montante desde su equipo
     llaves.forEach(function (k) {
       var st = stubs[k.split('|')[0]] || { x: fx + fw, y: fy + fh - 8 }, capa = CAPA_DE_TIPO[k.split('|')[1]];
       hLinea(st.x, xR[k], info[k].y0, capa, k);
+      var xm = (st.x + xR[k]) / 2;
+      if (xR[k] - st.x > 22 && libre(xm, info[k].y0, k)) flecha(xm, info[k].y0, 'r', capa);
     });
     var claseA = {};   // montantes que llevan lazos clase A: tienen además su montante de retorno
 
@@ -705,7 +722,12 @@
           return [xq - hw, xq + hw];
         });
         hLinea(xs, xFin, y, capa, key, huecos);
-        d.P([[xs, y], [xs + 3.2, y + 1.6], [xs + 3.2, y - 1.6]], true, capa, true);
+        flecha(xs + 4.5, y, 'r', capa);   // el lazo sale del montante hacia los dispositivos
+        var fx0 = [];
+        for (var xa = xs + 28; xa < xChain - 48; xa += 46) fx0.push(xa);                       // tramo largo hasta los dispositivos
+        for (var jj = 1; jj < f.g.length; jj++) fx0.push(xChain + jj * PASO);                   // entre dispositivos consecutivos
+        if (f.g.length && xChain + f.g.length * PASO + 4 < xFin - 3) fx0.push(xChain + f.g.length * PASO + 4);
+        fx0.forEach(function (xa2) { if (libre(xa2, y, key, huecos)) flecha(xa2, y, 'r', capa); });
         d.T(xChain - 4, y + 2, c ? c.circuito + (esA ? ' (clase A)' : '') : '(sin lazo asignado)', 2.8, c ? capa : 'FA-ALERTA', 'r', 0, 'lz:' + rowId);
         f.g.forEach(function (it, j) {
           var x = xChain + j * PASO + PASO / 2, sid = simboloDe(it.dsp), cb = caja(SIM[sid] || SIM.FA001), esc = Math.min(ESC, 11 / Math.max(cb.w, cb.h)), top = cb.h * esc / 2;
@@ -721,6 +743,8 @@
           d.P([[xFin, y], [xb, y], [xb, yr]], false, capa);
           hLinea(xr, xb, yr, capa, key);
           d.P([[xr + 3.6, yr], [xr + 6.8, yr + 1.5], [xr + 6.8, yr - 1.5]], true, capa, true);
+          flecha(xb, yr + 5, 'd', capa);
+          for (var xq = xb - 46; xq > xr + 16; xq -= 46) if (libre(xq, yr, key)) flecha(xq, yr, 'l', capa);
           (claseA[key] = claseA[key] || []).push(yr);
         } else if (/NAC|VOCEO|IDC/.test(f.tipo) && f.tipo !== '24VDC') { d.R(xFin + 2, y - 2.6, 10, 5.2, 'FA-SIMBOLOS'); d.T(xFin + 7, y - 1, 'RFL', 2.4, 'FA-TEXTO', 'c'); }
         if (c && !f.principal) {
@@ -737,6 +761,12 @@
     llaves.forEach(function (k) {
       var capa = CAPA_DE_TIPO[k.split('|')[1]], s = info[k];
       d.L(xR[k], s.min, xR[k], s.max, capa);
+      var yj = rowsList.filter(function (q) { return q.key === k && !q.ret; }).map(function (q) { return q.y; }).concat([s.y0]).sort(function (a, b) { return a - b; });
+      for (var q = 0; q + 1 < yj.length; q++) {
+        if (yj[q + 1] - yj[q] < 18) continue;
+        var ym = (yj[q] + yj[q + 1]) / 2;
+        flecha(xR[k], ym, ym > s.y0 ? 'u' : 'd', capa);
+      }
       d.T(xR[k], s.max + 4.5 + (llaves.indexOf(k) % 2) * 5, (k.split('|')[1] === '24VDC' ? '24 VDC' : (k.split('|')[1] === 'TEL' ? 'TELÉFONO' : k.split('|')[1])), 2.4, capa, 'c', 0, 'rs:' + k);
       if (claseA[k]) {
         var xr = xR[k] + 3.6, ysR = claseA[k].concat([s.y0 - 2.4]);
