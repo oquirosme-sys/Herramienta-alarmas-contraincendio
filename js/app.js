@@ -1010,25 +1010,57 @@
     });
     return l;
   }
+  function equipoDeFila(id) {
+    var r = null;
+    S.proy.paneles.concat(S.proy.fuentes).forEach(function (e) { if ((e.filas || []).some(function (f) { return f.id === id; })) r = e; });
+    return r;
+  }
   function vistaNivel(nombre) {
-    var P = S.proy, lista = dispositivosEnNivel(nombre), h = [];
+    var P = S.proy, h = [], equipos = P.paneles.concat(P.fuentes), filasN = [];
+    equipos.forEach(function (eq) {
+      var ref = (porId(P.paneles, eq.id) ? 'p:' : 'f:') + eq.id;
+      (eq.filas || []).forEach(function (f, i) { if (f.zona === nombre) filasN.push({ eq: eq, ref: ref, f: f, i: i }); });
+    });
     h.push('<div class="encabezado"><div><h2>' + esc(nombre) + ' <span class="sec-sub">sin panel ni transponder</span></h2>' +
-      '<div class="sub">Este nivel forma parte del proyecto y aparece en el diagrama unifilar aunque solo lleve sensores o dispositivos. Sus dispositivos se conectan a lazos de otro panel, transponder o fuente: agréguelos al equipo al que pertenecen, con este nivel, o cree aquí un transponder.</div></div>' +
-      '<div class="acciones"><button class="btn" data-act="ir" data-tab="proyecto">← Proyecto</button></div></div>');
-    h.push('<section class="card"><div class="card-h"><h3>Dispositivos de este nivel</h3><span class="nota">Se editan en la pestaña del equipo al que están conectados.</span></div>' +
-      '<div class="card-b flush tabla-wrap"><table class="t"><thead><tr><th>Equipo</th><th>Modelo / descripción</th><th>TAG</th><th>Lazo / salida</th><th class="num">Cant.</th><th></th></tr></thead><tbody>' +
-      (lista.length ? lista.map(function (x) {
-        var d = S.cx.disp[x.f.disp], c = porId(P.caida.circuitos, x.f.circ), ref = (porId(P.paneles, x.eq.id) ? 'p:' : 'f:') + x.eq.id;
-        return '<tr><td>' + esc(x.eq.tag) + '</td><td>' + esc(d ? etiquetaDisp(d) : '— sin modelo —') + '</td><td>' + esc(d ? d.tag : '') + '</td><td>' + esc(c ? c.circuito : '—') + '</td>' +
-          '<td class="num">' + fmt(Calc.num(x.f.cant), 0) + '</td><td><button class="btn btn-sm" data-act="ir" data-tab="' + esc(ref) + '">Abrir →</button></td></tr>';
-      }).join('') : '<tr><td colspan="6" class="vacio">Todavía no hay dispositivos en este nivel. Agregue una fila a un equipo con este nivel, o cree un transponder aquí.</td></tr>') +
-      '</tbody></table></div>' +
-      '<div class="card-b" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; border-top:1px solid var(--border)">' +
-      '<label class="campo" style="margin:0"><span>Agregar dispositivo en este nivel a</span><select id="selNivelEq" class="in">' +
-      P.paneles.concat(P.fuentes).map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.tag + (e.nivel ? ' · ' + e.nivel : '')) + '</option>'; }).join('') + '</select></label>' +
-      '<button class="btn primary btn-sm" data-act="nivel-fila" data-nivel="' + esc(nombre) + '">+ Fila en este nivel</button>' +
-      '<button class="btn btn-sm" data-act="nivel-trp" data-nivel="' + esc(nombre) + '">Crear transponder en este nivel</button></div></section>');
+      '<div class="sub">Los dispositivos de este nivel se asignan a lazos como en cualquier otro nivel: elija el equipo (panel, transponder o fuente) del que salen y su lazo. El nivel aparece en el diagrama unifilar con sus dispositivos.</div></div>' +
+      '<div class="acciones"><button class="btn" data-act="ir" data-tab="proyecto">← Proyecto</button>' +
+      '<button class="btn" data-act="nivel-trp" data-nivel="' + esc(nombre) + '" title="Crea un transponder en este nivel y deja de ser un nivel sin panel">Crear transponder aquí</button></div></div>');
+    h.push('<section class="card"><div class="card-h"><h3>Dispositivos conectados en ' + esc(nombre) + '</h3>' +
+      '<span class="nota">Flujo: 1) Equipo → 2) Fabricante y modelo → 3) Lazo → 4) Cantidad. Los lazos disponibles son los del equipo elegido (defínalos en la pestaña de ese equipo o con «＋ Nuevo lazo…»).</span></div>' +
+      '<div class="card-b flush tabla-wrap"><table class="t"><thead><tr><th class="idx">#</th><th>Equipo</th><th>Fabricante</th><th>Modelo / descripción</th><th>TAG</th><th>Nivel</th><th>Lazo / salida</th>' +
+      '<th class="num">Cant.</th><th class="num">I espera unit. (mA)</th><th class="num">I espera total (A)</th><th class="num">I alarma unit. (mA)</th><th class="num">I alarma total (A)</th><th>Observación</th><th></th><th></th></tr></thead><tbody>');
+    filasN.forEach(function (x, n) {
+      var opts = equipos.map(function (e) { return '<option value="' + esc(e.id) + '"' + (e.id === x.eq.id ? ' selected' : '') + '>' + esc(e.tag + (e.nivel ? ' · ' + e.nivel : '')) + '</option>'; }).join('');
+      var tr = filaHTML(x.ref, x.f, n).replace('</td>', '</td><td><select class="in w-md" data-nv="eq" data-id="' + esc(x.f.id) + '" title="Equipo del que sale este dispositivo">' + opts + '</select></td>');
+      h.push(tr);
+    });
+    if (!filasN.length) h.push('<tr><td colspan="15" class="vacio">Todavía no hay dispositivos en este nivel. Elija el equipo y use «+ Fila en este nivel».</td></tr>');
+    h.push('</tbody><tfoot><tr><td colspan="9" style="text-align:right">TOTALES del nivel:</td><td class="num" data-out="tot-ie"></td><td></td><td class="num" data-out="tot-ia"></td><td colspan="3"></td></tr></tfoot></table></div>' +
+      '<div class="card-b" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; border-top:1px solid var(--line)">' +
+      '<label class="campo" style="margin:0"><span>Agregar a</span><select id="selNivelEq" class="in">' +
+      equipos.map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.tag + (e.nivel ? ' · ' + e.nivel : '')) + '</option>'; }).join('') + '</select></label>' +
+      '<button class="btn primary btn-sm" data-act="nivel-fila" data-nivel="' + esc(nombre) + '" data-n="1">+ Fila en este nivel</button>' +
+      '<button class="btn btn-sm" data-act="nivel-fila" data-nivel="' + esc(nombre) + '" data-n="5">+ 5 filas</button>' +
+      '<button class="btn btn-sm" data-act="copiar-nivel-n" data-nivel="' + esc(nombre) + '" title="Copia los dispositivos de un nivel típico a este, alimentados desde un equipo de otro nivel">⧉ Copiar de otro nivel</button></div></section>');
     vista.innerHTML = h.join('');
+    S.pintor = function () {
+      var iE = 0, iA = 0, calc = {};
+      equipos.forEach(function (eq) { calc[eq.id] = porId(P.fuentes, eq.id) ? Calc.fuente(S.cx, eq, P) : Calc.panel(S.cx, eq, P); });
+      filasN.forEach(function (x) {
+        var r = calc[x.eq.id].filas[x.i], f = x.f;
+        if (!r) return;
+        out('tag:' + f.id, esc(r.tag)); out('desc:' + f.id, esc(r.descripcion));
+        out('ie:' + f.id, r.iEspT === null ? '' : fmt(r.iEspT, 4)); out('ia:' + f.id, r.iAlmT === null ? '' : fmt(r.iAlmT, 4));
+        out('av:' + f.id, r.aviso ? '<span class="aviso ' + r.nivel + '" title="' + esc(r.aviso) + '">' + (r.nivel === 'error' ? '❌ ' : '⚠ ') + esc(r.aviso) + '</span>' : '');
+        iE += r.iEspT || 0; iA += r.iAlmT || 0;
+        var tr = vista.querySelector('tr[data-fila="' + f.id + '"]');
+        if (tr) {
+          tr.classList.toggle('aviso-error', r.nivel === 'error');
+          tr.querySelectorAll('[data-k="iEsp"],[data-k="iAlm"]').forEach(function (inp) { inp.classList.toggle('editado', inp.value.trim() !== ''); });
+        }
+      });
+      out('tot-ie', fmt(iE, 4)); out('tot-ia', fmt(iA, 4));
+    };
   }
 
   function vistaCaida() {
@@ -1489,6 +1521,16 @@
   }
   vista.addEventListener('change', function (e) {
     var en = e.target;
+    if (en.dataset && en.dataset.nv === 'eq') {
+      var de = equipoDeFila(en.dataset.id), a = porId(S.proy.paneles, en.value) || porId(S.proy.fuentes, en.value), fl = de && porId(de.filas, en.dataset.id);
+      if (de && a && fl && de !== a) {
+        de.filas = de.filas.filter(function (x) { return x !== fl; });
+        fl.circ = ''; fl.circ2 = '';      // los lazos son del equipo anterior: se vuelve a elegir
+        a.filas.push(fl);
+        proyectoCambiado(); renderVista(); toast('Dispositivo pasado a ' + a.tag + ': elija su lazo');
+      }
+      return;
+    }
     if (en.dataset && en.dataset.sb) {
       var SB = simbProy(), fila = Simbologia.porId(en.dataset.id), o = SB[en.dataset.id] || (SB[en.dataset.id] = {});
       if (en.dataset.sb === 'modo') { o.modo = en.value; if (o.modo === 'auto') delete o.modo; }
@@ -1717,13 +1759,54 @@
     imprimir: function () { window.print(); },
 
     'nivel-fila': function (b) {
-      var sel = document.getElementById('selNivelEq'), eq = sel && (porId(S.proy.paneles, sel.value) || porId(S.proy.fuentes, sel.value));
+      var sel = document.getElementById('selNivelEq'), eq = sel && (porId(S.proy.paneles, sel.value) || porId(S.proy.fuentes, sel.value)), n = +b.dataset.n || 1;
       if (!eq) { toast('Primero cree un panel o transponder'); return; }
       var ult = eq.filas[eq.filas.length - 1];
-      eq.filas.push(nuevaFila(ult ? ult.fab : S.proy.fabricante, b.dataset.nivel, ''));
-      proyectoCambiado();
-      irA((porId(S.proy.paneles, eq.id) ? 'p:' : 'f:') + eq.id);
-      toast('Fila agregada a ' + eq.tag + ' en ' + b.dataset.nivel + ': elija el modelo y el lazo');
+      for (var i = 0; i < n; i++) eq.filas.push(nuevaFila(ult ? ult.fab : S.proy.fabricante, b.dataset.nivel, ''));
+      proyectoCambiado(); renderVista();
+      var cs = vista.querySelectorAll('input[data-combo]');
+      if (cs.length) cs[cs.length - n].focus();
+    },
+    /* Copia los dispositivos de un nivel típico a un nivel (con o sin panel), alimentándolos desde un equipo de otro nivel */
+    'copiar-nivel-n': function (b) {
+      var P = S.proy, destino = b.dataset.nivel, equipos = P.paneles.concat(P.fuentes);
+      function filasDe(n) { var l = []; equipos.forEach(function (e) { (e.filas || []).forEach(function (f) { if (f.zona === n) l.push({ e: e, f: f }); }); }); return l; }
+      var origenes = P.niveles.filter(function (n) { return n !== destino && filasDe(n).some(function (x) { return x.f.disp; }); });
+      if (!origenes.length) { toast('Ningún otro nivel tiene dispositivos para copiar'); return; }
+      dialogo({
+        titulo: 'Copiar a ' + destino,
+        html: '<label class="campo"><span>Nivel típico (origen)</span><select name="origen">' + origenes.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + ' — ' + filasDe(n).filter(function (x) { return x.f.disp; }).length + ' filas</option>'; }).join('') + '</select></label>' +
+          '<label class="campo"><span>Alimentar desde</span><select name="equipo"><option value="">El mismo equipo de cada fila del nivel de origen</option>' + equipos.map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.tag + (e.nivel ? ' · ' + e.nivel : '')) + '</option>'; }).join('') + '</select></label>' +
+          '<label class="campo"><span>Lazos</span><select name="lazos"><option value="nuevos">Crear lazos nuevos (mismo tipo, clase, cable y longitud)</option><option value="mismos">Usar los lazos que ya tiene el equipo (del mismo tipo)</option></select></label>' +
+          '<label class="campo"><span>Si ' + esc(destino) + ' ya tiene dispositivos</span><select name="modo"><option value="agregar">Agregar a los existentes</option><option value="reemplazar">Reemplazar (se quitan sus filas)</option></select></label>' +
+          '<p class="nota">Las filas quedan ligadas a ' + esc(destino) + '. Los transponders / paneles del nivel de origen no se copian.</p>',
+        ok: 'Copiar'
+      }).then(function (r) {
+        if (!r) return;
+        if (r.modo === 'reemplazar') equipos.forEach(function (e) { e.filas = (e.filas || []).filter(function (f) { return f.zona !== destino; }); });
+        var fijo = r.equipo ? (porId(P.paneles, r.equipo) || porId(P.fuentes, r.equipo)) : null, mapa = {}, nF = 0, nL = 0;
+        function lazoPara(circId, eqDest) {
+          if (!circId) return '';
+          var c0 = porId(P.caida.circuitos, circId); if (!c0) return '';
+          var k = circId + '>' + eqDest.id; if (mapa[k]) return mapa[k];
+          var ex = r.lazos === 'mismos' ? P.caida.circuitos.filter(function (x) { return x.fuente === eqDest.id && x.tipo === c0.tipo; })[0] : null;
+          if (ex) return (mapa[k] = ex.id);
+          var n = clonar(c0); n.id = uid('c'); n.fuente = eqDest.id; n.nivel = destino;
+          if (P.caida.circuitos.some(function (x) { return x.fuente === eqDest.id && x.circuito === n.circuito; })) n.circuito = nuevoCircuito(eqDest.id, c0.tipo).circuito;
+          P.caida.circuitos.push(n); nL++;
+          return (mapa[k] = n.id);
+        }
+        filasDe(r.origen).forEach(function (x) {
+          var d = S.cx.disp[x.f.disp];
+          if (!x.f.disp && Calc.num(x.f.cant) === null) return;
+          if (d && /^(FACP|TRP)$/.test(d.tag)) return;
+          var eqD = fijo || x.e, c = clonar(x.f); c.id = uid('r'); c.zona = destino;
+          c.circ = lazoPara(x.f.circ, eqD); c.circ2 = lazoPara(x.f.circ2, eqD);
+          eqD.filas.push(c); nF++;
+        });
+        proyectoCambiado(); renderVista();
+        toast('Copiados ' + nF + ' dispositivos y ' + nL + ' lazos de ' + r.origen + ' a ' + destino);
+      });
     },
     'nivel-trp': function (b) {
       var pn = crearNivel(b.dataset.nivel, 'TRP');
@@ -1846,13 +1929,13 @@
       if (sel.length) sel[sel.length - n].focus();
     },
     'fila-dup': function (b) {
-      var eq = equipo(S.tab), i = eq.filas.findIndex(function (x) { return x.id === b.dataset.id; });
+      var eq = equipo(S.tab) || equipoDeFila(b.dataset.id), i = eq.filas.findIndex(function (x) { return x.id === b.dataset.id; });
       var c = clonar(eq.filas[i]); c.id = uid('r');
       eq.filas.splice(i + 1, 0, c);
       proyectoCambiado(); renderVista();
     },
     'fila-del': function (b) {
-      var eq = equipo(S.tab);
+      var eq = equipo(S.tab) || equipoDeFila(b.dataset.id);
       eq.filas = eq.filas.filter(function (x) { return x.id !== b.dataset.id; });
       proyectoCambiado(); renderVista();
     },

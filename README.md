@@ -170,3 +170,7 @@ Desde la pestaña **Diagrama unifilar**: **DXF en láminas con cajetín** y **PD
 
 ### Todos los niveles del proyecto en la lista de pestañas
 La lista de pestañas muestra **todos los niveles** en orden (no solo los que tienen panel): un nivel sin panel ni transponder aparece como pestaña «NIVEL n · sin panel». Esa pestaña lista los dispositivos de ese nivel (de cualquier equipo), permite **agregar una fila a un equipo con ese nivel** o **crear un transponder** allí (la pestaña pasa a ser la del transponder). El diagrama unifilar ya dibuja todos los niveles aunque estén vacíos.
+
+### Niveles sin panel: asignar dispositivos a lazos y copiar un nivel típico
+- La pestaña de un nivel sin panel tiene la **misma tabla de dispositivos** que cualquier equipo, con una columna **Equipo** (panel, transponder o fuente del que salen): se elige el equipo, y entonces el lazo entre los de ese equipo (o «＋ Nuevo lazo…»), cantidad y modelo (buscador). Cambiar el equipo de una fila la pasa a ese equipo y pide elegir su lazo. Los totales del nivel y las cargas de cada equipo se actualizan como siempre.
+- **⧉ Copiar de otro nivel** (también en estas pestañas): copia los dispositivos de un nivel típico al nivel actual, alimentados desde el mismo equipo de cada fila o desde uno elegido; los **lazos** pueden crearse nuevos (mismo tipo, clase A/B, cable y longitud, ligados al nivel destino) o reutilizar los que ya tiene el equipo; se puede agregar o reemplazar. Los paneles/transponders del nivel de origen no se copian.
