@@ -1141,11 +1141,11 @@
     var l = LAMINAS.filter(function (x) { return x.id === id; })[0];
     return ((S.proy.numero ? S.proy.numero + ' ' : '') + l.f + ' ' + (S.proy.nombre || '')).trim().replace(/[\\/:*?"<>|]+/g, '_') + '.dxf';
   }
-  function descargarDXF(id) {
-    var txt = Lamina.aDXF(Lamina.lamina(id, ctxLamina()));
+  function descargarDXF(id, hojas) {
+    var txt = hojas ? Lamina.dxfHojas(id, ctxLamina()) : Lamina.aDXF(Lamina.lamina(id, ctxLamina()));
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([txt], { type: 'application/dxf' }));
-    a.download = nombreDXF(id);
+    a.download = hojas ? nombreDXF(id).replace(/\.dxf$/, ' - laminas 1100x750.dxf') : nombreDXF(id);
     document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
   }
@@ -1192,7 +1192,10 @@
         return '<button class="btn' + (S.lam === l.id ? ' primario' : '') + '" data-act="lam-sel" data-id="' + l.id + '">' + esc(l.t) + '</button>';
       }).join('') +
       '<span style="flex:1"></span><button class="btn primario" data-act="lam-dxf">⬇ Descargar DXF de esta lámina</button>' +
-      '<button class="btn" data-act="lam-dxf-todas">⬇ Las 3 láminas</button></div></div>';
+      '<button class="btn" data-act="lam-dxf-todas">⬇ Las 3 láminas</button></div>' +
+      '<div class="acciones" style="margin-top:.5rem"><span class="muted">Láminas con cajetín Sinergia 1100 × 750 mm:</span>' +
+      '<button class="btn" data-act="lam-dxf-hojas">⬇ DXF en láminas con cajetín</button>' +
+      '<button class="btn" data-act="lam-pdf-hojas">🖨 PDF en láminas con cajetín</button></div></div>';
     if (S.lam === 'matriz') h += editorMatriz();
     h += '<div class="card"><h2>Vista previa</h2><div id="laminaVista" style="overflow:auto;background:#fff;border:1px solid var(--line,#ccc);border-radius:6px;padding:.5rem"></div></div>';
     vista.innerHTML = h;
@@ -1635,6 +1638,15 @@
     /* ----- láminas ----- */
     'lam-sel': function (b) { S.lam = b.dataset.id; renderVista(); },
     'lam-dxf': function () { descargarDXF(S.lam || 'du'); toast('DXF generado'); },
+    'lam-dxf-hojas': function () { descargarDXF(S.lam || 'du', true); toast('DXF en láminas 1100 × 750 generado'); },
+    'lam-pdf-hojas': function () {
+      var id = S.lam || 'du', url = new URL('img/logo-sinergia.png', location.href).href;
+      var w = window.open('', '_blank');
+      if (!w) { toast('Permita las ventanas emergentes para generar el PDF'); return; }
+      w.document.open(); w.document.write(Lamina.htmlHojas(id, ctxLamina(), url, nombreDXF(id).replace(/\.dxf$/, ''))); w.document.close();
+      setTimeout(function () { w.focus(); w.print(); }, 900);
+      toast('En el cuadro de impresión: Guardar como PDF, tamaño 1100 × 750 mm (o A0), márgenes ninguno, sin encabezados');
+    },
     'lam-dxf-todas': function () { LAMINAS.forEach(function (l, i) { setTimeout(function () { descargarDXF(l.id); }, i * 400); }); toast('Se descargan 3 archivos DXF'); },
     'mat-base': function () {
       confirmar('Restablecer matriz', 'Se reemplaza la matriz del proyecto por la matriz base. ¿Continuar?', 'Restablecer').then(function (ok) {

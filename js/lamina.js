@@ -8,7 +8,7 @@
   var CAPAS = {
     'FA-MARCO': [7, '#111'], 'FA-TEXTO': [7, '#111'], 'FA-SIMBOLOS': [7, '#111'], 'FA-TABLA': [7, '#111'],
     'FA-SLC': [3, '#1b9e3a'], 'FA-NAC': [30, '#a0522d'], 'FA-IDNAC': [6, '#a02c8f'], 'FA-VOCEO': [5, '#1f3bd1'], 'FA-NAC-VOCEO': [20, '#c2410c'],
-    'FA-24VDC': [1, '#d11f1f'], 'FA-IDC': [4, '#0a9fb0'], 'FA-ENCABEZADO': [5, '#1f4e79'], 'FA-ALERTA': [1, '#c00000'], 'FA-TEXTO-BLANCO': [7, '#fff']
+    'FA-24VDC': [1, '#d11f1f'], 'FA-IDC': [4, '#0a9fb0'], 'FA-ENCABEZADO': [5, '#1f4e79'], 'FA-ALERTA': [1, '#c00000'], 'FA-TEXTO-BLANCO': [7, '#fff'], 'FA-CAJETIN': [7, '#111']
   };
   var CAPA_DE_TIPO = { SLC: 'FA-SLC', NAC: 'FA-NAC', IDNAC: 'FA-IDNAC', VOCEO: 'FA-VOCEO', 'NAC+VOCEO': 'FA-NAC-VOCEO', '24VDC': 'FA-24VDC', IDC: 'FA-IDC' };
 
@@ -48,7 +48,7 @@
   /* ---------- modelo de dibujo ---------- */
   function Dib(w, h) { this.w = w; this.h = h; this.e = []; }
   Dib.prototype = {
-    L: function (x1, y1, x2, y2, capa) { this.e.push({ k: 'L', a: [x1, y1, x2, y2], c: capa || 'FA-TEXTO' }); return this; },
+    L: function (x1, y1, x2, y2, capa, ancho) { var e = { k: 'L', a: [x1, y1, x2, y2], c: capa || 'FA-TEXTO' }; if (ancho) e.w = ancho; this.e.push(e); return this; },
     P: function (pts, cerr, capa, relleno) { this.e.push({ k: 'P', p: pts, z: !!cerr, c: capa || 'FA-TEXTO', f: !!relleno }); return this; },
     C: function (x, y, r, capa) { this.e.push({ k: 'C', a: [x, y, r], c: capa || 'FA-TEXTO' }); return this; },
     R: function (x, y, w, h, capa, relleno) { return this.P([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], true, capa, relleno); },
@@ -90,7 +90,7 @@
     function col(c) { return (CAPAS[c] || CAPAS['FA-TEXTO'])[1]; }
     d.e.forEach(function (e) {
       var c = col(e.c);
-      if (e.k === 'L') o.push('<line x1="' + e.a[0].toFixed(2) + '" y1="' + (H - e.a[1]).toFixed(2) + '" x2="' + e.a[2].toFixed(2) + '" y2="' + (H - e.a[3]).toFixed(2) + '" stroke="' + c + '"/>');
+      if (e.k === 'L') o.push('<line' + (e.w ? ' stroke-width="' + e.w + '"' : '') + ' x1="' + e.a[0].toFixed(2) + '" y1="' + (H - e.a[1]).toFixed(2) + '" x2="' + e.a[2].toFixed(2) + '" y2="' + (H - e.a[3]).toFixed(2) + '" stroke="' + c + '"/>');
       else if (e.k === 'C') o.push('<circle cx="' + e.a[0].toFixed(2) + '" cy="' + (H - e.a[1]).toFixed(2) + '" r="' + e.a[2].toFixed(2) + '" fill="none" stroke="' + c + '"/>');
       else if (e.k === 'P') o.push('<' + (e.z ? 'polygon' : 'polyline') + ' points="' + e.p.map(function (q) { return q[0].toFixed(2) + ',' + (H - q[1]).toFixed(2); }).join(' ') + '" fill="' + (e.f ? c : 'none') + '" stroke="' + c + '"/>');
       else if (e.k === 'T') {
@@ -122,7 +122,8 @@
     g(0, 'ENDSEC');
     g(0, 'SECTION'); g(2, 'ENTITIES');
     d.e.forEach(function (e) {
-      if (e.k === 'L') { g(0, 'LINE'); g(8, e.c); g(10, n(e.a[0])); g(20, n(e.a[1])); g(30, 0); g(11, n(e.a[2])); g(21, n(e.a[3])); g(31, 0); }
+      if (e.k === 'L' && e.w) { g(0, 'POLYLINE'); g(8, e.c); g(66, 1); g(70, 0); g(40, e.w); g(41, e.w); [[e.a[0], e.a[1]], [e.a[2], e.a[3]]].forEach(function (q) { g(0, 'VERTEX'); g(8, e.c); g(10, n(q[0])); g(20, n(q[1])); g(30, 0); }); g(0, 'SEQEND'); g(8, e.c); }
+      else if (e.k === 'L') { g(0, 'LINE'); g(8, e.c); g(10, n(e.a[0])); g(20, n(e.a[1])); g(30, 0); g(11, n(e.a[2])); g(21, n(e.a[3])); g(31, 0); }
       else if (e.k === 'C') { g(0, 'CIRCLE'); g(8, e.c); g(10, n(e.a[0])); g(20, n(e.a[1])); g(30, 0); g(40, n(e.a[2])); }
       else if (e.k === 'P') {
         if (e.f && e.p.length >= 3) { // relleno: abanico de triángulos (SOLID) — válido para formas convexas (puntos, flechas)
@@ -264,6 +265,7 @@
     d.T(x0, y, 'CÁLCULOS — ' + (P.nombre || '') + (P.numero ? ' (' + P.numero + ')' : ''), 5, 'FA-TEXTO'); y -= 8;
     d.T(x0, y, (P.normativa || '') + ' · V fuente = ' + fmt(cd.params.vFuente, 1) + ' V · V mín = ' + fmt(cd.params.vMin, 0) + ' V · I máx NAC = ' + fmt(cd.params.iMaxNac, 1) + ' A', 2.6, 'FA-TEXTO'); y -= 10;
     equipos.forEach(function (E) {
+      (d.cortes = d.cortes || []).push(y + 6);
       var eq = E.eq, lazos = P.caida.circuitos.map(function (c, i) { return { c: c, r: cd.circuitos[i] }; }).filter(function (x) { return x.c.fuente === eq.id; });
       // tabla de caída de tensión
       if (lazos.length) {
@@ -316,106 +318,187 @@
 
   /* ======================= DIAGRAMA UNIFILAR (DU) ======================= */
   function dibujarDU(d, ctx, x0, yTop) {
-    var P = ctx.proy, cx = ctx.cx, Calc = ctx.Calc;
+    var P = ctx.proy, cx = ctx.cx, Calc = ctx.Calc, cd = Calc.caida(cx, P), RP = Calc.proyecto(cx, P);
     var niveles = P.niveles.length ? P.niveles : ['NIVEL 1'];
-    var pitch = Math.max(56, Math.min(72, 600 / niveles.length)), slot = pitch / 3, ESC = 1.35;
-    var yBase = yTop - 60 - niveles.length * pitch; // fila del nivel más bajo
-    var xR = { SLC: x0 + 215, NAC: x0 + 229, IDNAC: x0 + 229, VOCEO: x0 + 243, 'NAC+VOCEO': x0 + 271, '24VDC': x0 + 257, IDC: x0 + 215 };
-    var SLOT = { SLC: 0, IDC: 0, NAC: 1, IDNAC: 1, VOCEO: 2, 'NAC+VOCEO': 2, '24VDC': 2 };
-    var xChain = x0 + 285, paso = 24;
-    var circs = {}; P.caida.circuitos.forEach(function (c) { circs[c.id] = c; });
-    var usados = [], numDe = {}; // leyenda
-    // dispositivos por nivel y línea
-    var porNivel = {};
-    P.paneles.concat(P.fuentes).forEach(function (eq) {
+    var equipos = P.paneles.concat(P.fuentes);
+    var ORD = ['SLC', 'IDC', 'NAC', 'NAC+VOCEO', 'IDNAC', 'VOCEO', '24VDC'];
+    var ROW = 27, PAD = 16, ESC = 1.35, PASO = 24;
+    var circs = {}, res = {};
+    P.caida.circuitos.forEach(function (c, i) { circs[c.id] = c; res[c.id] = cd.circuitos[i]; });
+    function eqDe(id) { return equipos.filter(function (e) { return e.id === id; })[0]; }
+    function idxNivel(n) { return niveles.indexOf(n); }
+    function nivelDe(c) {
+      if (idxNivel(c.nivel) >= 0) return c.nivel;
+      var e = eqDe(c.fuente); return e && idxNivel(e.nivel) >= 0 ? e.nivel : niveles[0];
+    }
+
+    /* ---- dispositivos por lazo (principal y de alimentación 24 V) y sin lazo asignado ---- */
+    var porLazo = {}, sinLazo = {}, usados = [], numDe = {}, anunc = [];
+    function sumar(lista, dsp, cant) {
+      var g = lista.filter(function (x) { return x.dsp.id === dsp.id; })[0];
+      if (g) g.cant += cant; else lista.push({ dsp: dsp, cant: cant });
+    }
+    equipos.forEach(function (eq) {
       (eq.filas || []).forEach(function (f) {
         var dsp = cx.disp[f.disp], cant = Calc.num(f.cant);
-        if (!dsp || !cant) return;
-        if (/^(FACP|TRP|OTRO)$/.test(dsp.tag)) return;
-        var nv = f.zona || eq.nivel || niveles[0], c = f.circ ? circs[f.circ] : null, tipo = c ? c.tipo : Calc.tipoLazoDe(dsp);
-        if (SLOT[tipo] === undefined) tipo = 'SLC';
-        var L = (porNivel[nv] = porNivel[nv] || {}), key = SLOT[tipo];
-        var lista = (L[key] = L[key] || []), g = lista.filter(function (x) { return x.dsp.id === dsp.id; })[0];
-        if (g) g.cant += cant; else lista.push({ dsp: dsp, cant: cant, tipo: tipo });
+        if (!dsp || !cant || /^(FACP|TRP|OTRO)$/.test(dsp.tag)) return;
+        if (dsp.tag === 'ANN') { anunc.push({ dsp: dsp, cant: cant, nivel: f.zona || eq.nivel || '' }); }
+        else if (f.circ && circs[f.circ]) { sumar(porLazo[f.circ] = porLazo[f.circ] || [], dsp, cant); }
+        else {
+          var nv = idxNivel(f.zona) >= 0 ? f.zona : (idxNivel(eq.nivel) >= 0 ? eq.nivel : niveles[0]), t = Calc.tipoLazoDe(dsp);
+          sinLazo[nv] = sinLazo[nv] || {};
+          sumar(sinLazo[nv][t] = sinLazo[nv][t] || [], dsp, cant);
+        }
+        if (dsp.circuito2 && f.circ2 && circs[f.circ2]) sumar(porLazo[f.circ2] = porLazo[f.circ2] || [], dsp, cant);
         if (usados.indexOf(dsp.id) < 0) { usados.push(dsp.id); numDe[dsp.id] = usados.length; }
       });
     });
-    var maxCad = 6; Object.keys(porNivel).forEach(function (nv) { Object.keys(porNivel[nv]).forEach(function (k) { maxCad = Math.max(maxCad, porNivel[nv][k].length); }); });
-    var xEnd = xChain + maxCad * paso + 12;
+
+    /* ---- filas de cada nivel: un renglón por lazo (y uno por tipo para lo que no tiene lazo) ---- */
+    var filas = {};
+    niveles.forEach(function (n) { filas[n] = []; });
+    P.caida.circuitos.forEach(function (c) { filas[nivelDe(c)].push({ c: c, g: porLazo[c.id] || [], tipo: c.tipo }); });
+    niveles.forEach(function (n) {
+      Object.keys(sinLazo[n] || {}).forEach(function (t) { filas[n].push({ c: null, g: sinLazo[n][t], tipo: t }); });
+      filas[n].sort(function (a, b) { return ORD.indexOf(a.tipo) - ORD.indexOf(b.tipo); });
+    });
+    var nEqNiv = niveles.map(function (n) { return equipos.filter(function (e, ie) { return e !== P.paneles[0] && Math.max(0, idxNivel(e.nivel)) === idxNivel(n); }).length; });
+    var alto = niveles.map(function (n, i) { return Math.max(Math.max(1, filas[n].length) * ROW, nEqNiv[i] * 30) + PAD; });
+    var total = alto.reduce(function (a, b) { return a + b; }, 0);
+    var yNiv0 = yTop - 70 - total;               // base del nivel más bajo
+    var yb = [], acc = yNiv0;
+    niveles.forEach(function (n, i) { yb.push(acc); acc += alto[i]; });
+    function yFila(i, k) { return yb[i] + alto[i] - 8 - (k + 0.5) * ROW; }
+
+    /* ---- FACP (abajo) ---- */
+    var fx = x0, fw = 190, fh = 96, fy = yNiv0 - 28 - fh;
+    var facp = P.paneles[0];
+
+    /* ---- montantes: uno por equipo y tipo de circuito ---- */
+    var llaves = [], posL = {};
+    P.caida.circuitos.forEach(function (c) { var k = c.fuente + '|' + c.tipo; if (llaves.indexOf(k) < 0) llaves.push(k); });
+    llaves.sort(function (a, b) {
+      var A = a.split('|'), B = b.split('|');
+      return equipos.indexOf(eqDe(A[0])) - equipos.indexOf(eqDe(B[0])) || ORD.indexOf(A[1]) - ORD.indexOf(B[1]);
+    });
+    var xR0 = x0 + 215, xR = {};
+    llaves.forEach(function (k, i) { xR[k] = xR0 + i * 8; });
+    var xChain = xR0 + Math.max(1, llaves.length) * 8 + 52;
+
+    var maxCad = 5;
+    Object.keys(filas).forEach(function (n) { filas[n].forEach(function (f) { maxCad = Math.max(maxCad, f.g.length); }); });
+    var xEndCad = xChain + maxCad * PASO;
+    var xInfo = xEndCad + 16, xEnd = xInfo + 150;
+
     d.T(x0, yTop, 'DU ALARMAS CONTRA INCENDIO', 7, 'FA-TEXTO');
-    d.T(x0, yTop - 8, (P.nombre || '') + (P.numero ? ' · ' + P.numero : ''), 3.4, 'FA-TEXTO');
-    // FACP con módulos de lazo
-    var fx = x0, fy = yBase - 120, fw = 190, fh = 92;
-    var nSLC = Math.max(1, P.caida.circuitos.filter(function (c) { return c.tipo === 'SLC'; }).length),
-      nNAC = Math.max(1, P.caida.circuitos.filter(function (c) { return c.tipo === 'NAC' || c.tipo === 'IDNAC'; }).length),
-      mods = Math.min(8, Math.ceil(nSLC / 2) + Math.ceil(nNAC / 2));
+    d.T(x0, yTop - 8, (P.nombre || '') + (P.numero ? ' · ' + P.numero : '') + (P.cliente ? ' · ' + P.cliente : ''), 3.4, 'FA-TEXTO');
+    d.T(x0, yTop - 14, 'Una línea por lazo y nivel; cargas y caídas de tensión de la hoja de cálculo.', 2.4, 'FA-TEXTO');
+
+    d.cortes = yb.slice();                       // la lámina puede cortarse en los separadores de nivel
+    // separadores y nombres de nivel
+    niveles.forEach(function (n, i) {
+      d.L(x0 + 215 - 10, yb[i], xEnd, yb[i], 'FA-TABLA');
+      d.T(xEnd, yb[i] + 3, String(n), 5, 'FA-TEXTO', 'r');
+    });
+
+    // cajas de equipos (transponder, fuente, amplificador) en el nivel donde están
+    var stubs = {}, colEq = {};
+    equipos.forEach(function (eq, ie) {
+      if (eq === facp) return;
+      var i = Math.max(0, idxNivel(eq.nivel)), n = (colEq[i] = (colEq[i] || 0) + 1) - 1;
+      var bx = x0 + 22, by = yb[i] + alto[i] - 10 - n * 30 - 24, esAmpl = eq.tipo === 'AMP';
+      var esFuente = P.fuentes.indexOf(eq) >= 0;
+      d.R(bx, by, 80, 24, 'FA-SIMBOLOS');
+      d.T(bx + 40, by + 15.5, eq.tag || '', 4.2, 'FA-TEXTO', 'c');
+      d.T(bx + 40, by + 9.5, esAmpl ? 'AMPLIFICADOR DE VOCEO' : (esFuente ? 'FUENTE AUXILIAR ' + (Calc.num(eq.iMax) ? fmt(eq.iMax, 0) + ' A' : '') : 'TRANSPONDER'), 2.3, 'FA-TEXTO', 'c');
+      var rr = (RP.paneles.concat(RP.fuentes).filter(function (x) { return (x.p || x.f) === eq; })[0] || {}).r;
+      d.T(bx + 40, by + 4, rr && rr.bat && rr.bat.ah !== null ? 'Batería ' + fmt(rr.bat.ah, 1) + ' Ah' : '', 2.3, 'FA-TEXTO', 'c');
+      stubs[eq.id] = { x: bx + 80, y: by + 20, n: 0 };
+    });
+    // FACP con módulos
     d.R(fx, fy, fw, fh, 'FA-SIMBOLOS');
     d.T(fx + 8, fy + fh - 18, 'FACP', 14, 'FA-TEXTO');
-    var mw = Math.min(26, (fw - 20) / Math.max(mods, 6)), mx0 = fx + 10, nsl = Math.ceil(nSLC / 2);
-    for (var i = 0; i < Math.max(mods, 6); i++) {
-      var tipoM = i < Math.max(1, nsl) ? 'SLC' : 'NAC';
-      d.R(mx0 + i * mw, fy + 24, mw, 40, 'FA-SIMBOLOS');
-      d.T(mx0 + i * mw + mw / 2, fy + 52, tipoM, 3, 'FA-TEXTO', 'c');
-      [0.25, 0.5, 0.75].forEach(function (q) { d.P([[mx0 + i * mw + mw * q - 0.9, fy + 60.5], [mx0 + i * mw + mw * q + 0.9, fy + 60.5], [mx0 + i * mw + mw * q + 0.9, fy + 62.3], [mx0 + i * mw + mw * q - 0.9, fy + 62.3]], true, 'FA-SIMBOLOS', true); });
+    var nSLC = Math.max(1, P.caida.circuitos.filter(function (c) { return c.fuente === (facp || {}).id && c.tipo === 'SLC'; }).length),
+      nNAC = Math.max(1, P.caida.circuitos.filter(function (c) { return c.fuente === (facp || {}).id && /NAC/.test(c.tipo); }).length),
+      nsl = Math.ceil(nSLC / 2), mods = Math.min(8, nsl + Math.ceil(nNAC / 2)), nmod = Math.max(mods, 6);
+    var mw = Math.min(26, (fw - 20) / nmod), mx0 = fx + 10;
+    for (var m = 0; m < nmod; m++) {
+      d.R(mx0 + m * mw, fy + 24, mw, 40, 'FA-SIMBOLOS');
+      d.T(mx0 + m * mw + mw / 2, fy + 52, m < nsl ? 'SLC' : 'NAC', 3, 'FA-TEXTO', 'c');
+      [0.25, 0.5, 0.75].forEach(function (q) { d.R(mx0 + m * mw + mw * q - 0.9, fy + 60.5, 1.8, 1.8, 'FA-SIMBOLOS', true); });
     }
-    d.T(fx + fw / 2, fy + 8, (P.paneles[0] ? P.paneles[0].tag : 'FACP') + ' · ' + ((cx.fabricantes && cx.fabricantes[P.fabricante]) ? cx.fabricantes[P.fabricante].nombre : ''), 2.8, 'FA-TEXTO', 'c');
-    // montantes (risers)
-    var yTopRiser = yBase + (niveles.length - 1) * pitch + 3 * slot;
-    var tiposUsados = {};
-    Object.keys(porNivel).forEach(function (nv) { Object.keys(porNivel[nv]).forEach(function (k) { porNivel[nv][k].forEach(function (g) { tiposUsados[g.tipo] = 1; }); }); });
-    P.caida.circuitos.forEach(function (c) { tiposUsados[c.tipo] = 1; });
-    var verRiser = ['SLC', 'NAC', 'VOCEO', 'NAC+VOCEO', '24VDC'].filter(function (t) { return tiposUsados[t] || (t === 'NAC' && tiposUsados.IDNAC); });
-    verRiser.forEach(function (t, idx) {
-      var yc = fy + fh - 10 - idx * 6;
-      d.L(fx + fw, yc, xR[t], yc, CAPA_DE_TIPO[t]);
-      d.L(xR[t], yc, xR[t], yTopRiser, CAPA_DE_TIPO[t]);
-      d.T(xR[t], yTopRiser + 3, t === '24VDC' ? '24 VDC' : t, 2.6, CAPA_DE_TIPO[t], 'c');
+    d.T(fx + fw / 2, fy + 8, (facp ? facp.tag : 'FACP') + ' · ' + ((cx.fabricantes && cx.fabricantes[P.fabricante]) ? cx.fabricantes[P.fabricante].nombre : ''), 2.8, 'FA-TEXTO', 'c');
+    if (facp) stubs[facp.id] = { x: fx + fw, y: fy + fh - 8, n: 0, paso: 6 };
+
+    // origen de cada montante (salida del equipo) y extremos verticales
+    var yIni = {}, yMin = {}, yMax = {};
+    llaves.forEach(function (k) {
+      var st = stubs[k.split('|')[0]] || { x: fx + fw, y: fy + fh - 8, n: 0 }, y0 = st.y - st.n * (st.paso || 4);
+      st.n++;
+      yIni[k] = y0; yMin[k] = y0; yMax[k] = y0;
+      d.L(st.x, y0, xR[k], y0, CAPA_DE_TIPO[k.split('|')[1]]);
     });
-    // filas por nivel (el primero de la lista queda abajo)
-    niveles.forEach(function (nv, i) {
-      var y = yBase + i * pitch, L = porNivel[nv] || {};
-      d.L(x0 + 275, y - slot * 0.8, xEnd, y - slot * 0.8, 'FA-TEXTO');
-      d.T(xEnd, y - slot * 0.8 + 2, String(nv), 3.6, 'FA-TEXTO', 'r');
-      // transponder / panel del nivel
-      P.paneles.forEach(function (p, pi) {
-        if (p.nivel === nv && pi > 0) { d.S('FA018', x0 + 262, y, 1.6, 'FA-SIMBOLOS'); d.T(x0 + 262, y + 8, p.tag || 'TRP', 2.4, 'FA-TEXTO', 'c'); }
-      });
-      [0, 1, 2].forEach(function (k) {
-        var g = L[k] || [], yy = y + k * slot;
-        if (!g.length) return;
-        var tipoK = g[0].tipo, capa = CAPA_DE_TIPO[tipoK] || 'FA-SLC', xr = xR[tipoK] !== undefined ? xR[tipoK] : xR.SLC;
-        var xFin = xChain + g.length * paso;
-        d.L(xr, yy, xFin, yy, capa);
-        g.forEach(function (it, j) {
-          var xs = xChain + j * paso + paso / 2, sid = simboloDe(it.dsp), s = ESC;
-          var cb = caja(SIM[sid] || SIM.FA001), esc = Math.min(ESC, 11 / Math.max(cb.w, cb.h));
-          d.S(sid, xs, yy, esc, 'FA-SIMBOLOS');
-          var top = cb.h * esc / 2;
-          d.C(xs, yy + top + 4.6, 2.2, 'FA-TEXTO'); d.L(xs, yy + top + 2.4, xs, yy + top, 'FA-TEXTO');
-          d.T(xs, yy + top + 3.8, numDe[it.dsp.id], 2.2, 'FA-TEXTO', 'c');
-          d.T(xs, yy - top - 3.4, '×' + it.cant, 2.4, 'FA-TEXTO', 'c');
+
+    /* ---- renglones de lazo ---- */
+    niveles.forEach(function (n, i) {
+      filas[n].forEach(function (f, k) {
+        var y = yFila(i, k), c = f.c, capa = CAPA_DE_TIPO[f.tipo] || 'FA-SLC', key = c ? c.fuente + '|' + c.tipo : null;
+        var xs = key ? xR[key] : xChain - 30;
+        if (key) { yMin[key] = Math.min(yMin[key], y); yMax[key] = Math.max(yMax[key], y); }
+        var xFin = xEndCad;
+        d.L(xs, y, xFin, y, capa);
+        d.P([[xs, y], [xs + 3.2, y + 1.6], [xs + 3.2, y - 1.6]], true, capa, true);
+        d.T(xChain - 4, y + 2, c ? c.circuito : '(sin lazo asignado)', 2.8, c ? capa : 'FA-ALERTA', 'r');
+        f.g.forEach(function (it, j) {
+          var x = xChain + j * PASO + PASO / 2, sid = simboloDe(it.dsp), cb = caja(SIM[sid] || SIM.FA001), esc = Math.min(ESC, 11 / Math.max(cb.w, cb.h)), top = cb.h * esc / 2;
+          d.S(sid, x, y, esc, 'FA-SIMBOLOS');
+          d.C(x, y + top + 4.6, 2.2, 'FA-TEXTO'); d.L(x, y + top + 2.4, x, y + top, 'FA-TEXTO');
+          d.T(x, y + top + 3.8, numDe[it.dsp.id], 2.2, 'FA-TEXTO', 'c');
+          d.T(x, y - top - 3.4, '×' + it.cant, 2.4, 'FA-TEXTO', 'c');
         });
+        if (!f.g.length && c) d.T(xChain + 4, y + 1, 'sin dispositivos asignados', 2.4, 'FA-ALERTA');
+        if (/NAC|VOCEO|IDC/.test(f.tipo) && f.tipo !== '24VDC') { d.R(xFin + 2, y - 2.6, 10, 5.2, 'FA-SIMBOLOS'); d.T(xFin + 7, y - 1, 'RFL', 2.4, 'FA-TEXTO', 'c'); }
+        if (c) {
+          var r = res[c.id], cab = c.cable ? cx.cables[c.cable] : null, nd = r ? r.n : 0;
+          d.T(xInfo, y + 2.2, nd + ' disp. · ' + (r && r.iMa !== null ? fmt(r.iMa, 0) + ' mA' : 'sin corriente') + (c.long ? ' · ' + fmt(c.long, 0) + ' m' : '') + (cab ? ' · ' + cab.modelo + ' ' + cab.awg + ' AWG' : ''), 2.4, 'FA-TEXTO');
+          d.T(xInfo, y - 2.2, r && r.caida !== null ? 'ΔV ' + fmt(r.caida, 2) + ' V → ' + fmt(r.vDisp, 2) + ' V en el último dispositivo · ' + r.estado : (r && r.estado ? r.estado : 'falta cable o longitud'),
+            2.4, r && /ERROR|INCOMPLETO/.test(r.estado || '') ? 'FA-ALERTA' : 'FA-TEXTO');
+        }
       });
     });
-    // leyenda y tablas a la derecha
-    var lx = xEnd + 30, ly = yTop - 4, lw = 235;
-    d.R(lx, ly - 12, lw, 12, 'FA-TABLA'); d.T(lx + lw / 2, ly - 8.2, 'SIMBOLOGÍA DE ALARMAS CONTRA INCENDIO (NFPA 170)', 3.4, 'FA-TEXTO', 'c');
-    var yy = ly - 12;
+    // montantes verticales
+    llaves.forEach(function (k) {
+      var capa = CAPA_DE_TIPO[k.split('|')[1]];
+      d.L(xR[k], yMin[k], xR[k], yMax[k], capa);
+      d.T(xR[k], yMax[k] + 4, (k.split('|')[1] === '24VDC' ? '24 VDC' : k.split('|')[1]), 2.2, capa, 'c', 90);
+    });
+
+    /* ---- anunciadores remotos (bajo el FACP) ---- */
+    var ya = fy - 6;
+    anunc.forEach(function (a, i) {
+      d.S('FA013', fx + 8, ya - i * 12 - 4, 1.1, 'FA-SIMBOLOS');
+      d.L(fx + 18, ya - i * 12 - 4, fx + 26, ya - i * 12 - 4, 'FA-TEXTO');
+      d.T(fx + 28, ya - i * 12 - 5.2, 'ANUNCIADOR REMOTO ×' + a.cant + (a.nivel ? ' · ' + a.nivel : '') + ' — ' + (a.dsp.modelo || a.dsp.tag), 2.6, 'FA-TEXTO');
+    });
+
+    /* ---- tablas a la derecha ---- */
+    var lx = xEnd + 24, ly = yTop - 4, lw = 235;
+    function tit(yy, t) { d.R(lx, yy - 12, lw, 12, 'FA-TABLA'); d.T(lx + lw / 2, yy - 8.2, t, 3.4, 'FA-TEXTO', 'c'); return yy - 12; }
+    var yy = tit(ly, 'SIMBOLOGÍA DE ALARMAS CONTRA INCENDIO (NFPA 170)');
     usados.forEach(function (id) {
       var dsp = cx.disp[id], sid = simboloDe(dsp), cb = caja(SIM[sid] || SIM.FA001), esc = Math.min(1.4, 12 / Math.max(cb.w, cb.h));
       var fab = cx.fabricantes && cx.fabricantes[dsp.fabricante] ? cx.fabricantes[dsp.fabricante].nombre : '';
-      var lin = partir((dsp.tipo ? dsp.tipo + ' — ' : '') + (dsp.descripcion || ''), 2.3, lw - 80), alto = Math.max(15, lin.length * 3.5 + 4);
-      d.R(lx, yy - alto, lw, alto, 'FA-TABLA'); d.L(lx + 24, yy, lx + 24, yy - alto, 'FA-TABLA'); d.L(lx + lw - 52, yy, lx + lw - 52, yy - alto, 'FA-TABLA');
-      d.S(sid, lx + 12, yy - alto / 2, esc, 'FA-SIMBOLOS');
+      var lin = partir((dsp.tipo ? dsp.tipo + ' — ' : '') + (dsp.descripcion || ''), 2.3, lw - 80), al = Math.max(15, lin.length * 3.5 + 4);
+      d.R(lx, yy - al, lw, al, 'FA-TABLA'); d.L(lx + 24, yy, lx + 24, yy - al, 'FA-TABLA'); d.L(lx + lw - 52, yy, lx + lw - 52, yy - al, 'FA-TABLA');
+      d.S(sid, lx + 12, yy - al / 2, esc, 'FA-SIMBOLOS');
       d.C(lx + 4, yy - 4, 2.2, 'FA-TEXTO'); d.T(lx + 4, yy - 4.8, numDe[id], 2.2, 'FA-TEXTO', 'c');
       lin.forEach(function (t, k) { d.T(lx + 26, yy - 5 - k * 3.5, t, 2.3, 'FA-TEXTO'); });
       d.T(lx + lw - 50, yy - 5, 'REFERENCIA ' + fab, 2, 'FA-TEXTO'); d.T(lx + lw - 50, yy - 9, dsp.modelo && dsp.modelo !== '—' ? dsp.modelo : (dsp.tag || ''), 2.3, 'FA-TEXTO');
-      yy -= alto;
+      yy -= al;
     });
     if (!usados.length) { d.R(lx, yy - 14, lw, 14, 'FA-TABLA'); d.T(lx + 4, yy - 8, 'Asigne dispositivos a los niveles en las pestañas de cada panel.', 2.6, 'FA-TEXTO'); yy -= 14; }
-    // cableado
-    yy -= 10;
-    d.R(lx, yy - 12, lw, 12, 'FA-TABLA'); d.T(lx + lw / 2, yy - 8.2, 'CABLEADO SISTEMA ALARMAS CONTRA INCENDIO', 3.4, 'FA-TEXTO', 'c'); yy -= 12;
+
+    yy = tit(yy - 10, 'CABLEADO SISTEMA ALARMAS CONTRA INCENDIO');
     var vistos = {};
     P.caida.circuitos.forEach(function (c) {
       var cab = c.cable ? cx.cables[c.cable] : null, k = c.tipo + '|' + (cab ? cab.id : '');
@@ -426,23 +509,57 @@
       d.T(lx + 33, yy - 8.5, cab ? 'Ref.: ' + cab.fabricante + ' ' + cab.modelo : '', 2.3, 'FA-TEXTO');
       yy -= 11;
     });
+
+    // resumen de lazos (de la hoja de caída de tensión)
+    yy = tit(yy - 10, 'RESUMEN DE LAZOS (CAÍDA DE TENSIÓN)');
+    var cl = [['LAZO', 34], ['EQUIPO', 28], ['NIVEL', 34], ['DISP.', 16], ['I (mA)', 22], ['V DISP. (V)', 28], ['ESTADO', 73]], xx = lx;
+    d.R(lx, yy - 6, lw, 6, 'FA-TABLA');
+    cl.forEach(function (c) { d.T(xx + 1.5, yy - 4.2, c[0], 2.1, 'FA-TEXTO'); xx += c[1]; if (xx < lx + lw - 1) d.L(xx, yy, xx, yy - 6, 'FA-TABLA'); });
+    yy -= 6;
+    P.caida.circuitos.forEach(function (c) {
+      var r = res[c.id], e = eqDe(c.fuente), vals = [c.circuito, e ? e.tag : '', c.nivel || '', String(r.n), r.iMa === null ? '—' : fmt(r.iMa, 0), fmt(r.vDisp, 2), r.estado || '—'];
+      d.R(lx, yy - 6, lw, 6, 'FA-TABLA'); xx = lx;
+      cl.forEach(function (cc, j) {
+        var mx = Math.floor((cc[1] - 2) / (2.1 * 0.62)), t = vals[j]; if (t.length > mx) t = t.slice(0, mx - 1) + '…';
+        d.T(xx + 1.5, yy - 4.2, t, 2.1, j === 6 && /ERROR|INCOMPLETO/.test(t) ? 'FA-ALERTA' : 'FA-TEXTO'); xx += cc[1];
+        if (xx < lx + lw - 1) d.L(xx, yy, xx, yy - 6, 'FA-TABLA');
+      });
+      yy -= 6;
+    });
+
+    // baterías por equipo
+    yy = tit(yy - 10, 'BATERÍAS (NFPA 72 §10.6.7)');
+    var cb2 = [['EQUIPO', 34], ['NIVEL', 34], ['I ESP. (A)', 28], ['I ALM. (A)', 28], ['Ah REQ.', 27], ['BAT. (Ah)', 24], ['ESTADO', 60]];
+    d.R(lx, yy - 6, lw, 6, 'FA-TABLA'); xx = lx;
+    cb2.forEach(function (c) { d.T(xx + 1.5, yy - 4.2, c[0], 2.1, 'FA-TEXTO'); xx += c[1]; if (xx < lx + lw - 1) d.L(xx, yy, xx, yy - 6, 'FA-TABLA'); });
+    yy -= 6;
+    RP.paneles.concat(RP.fuentes).forEach(function (x) {
+      var e = x.p || x.f, r = x.r, vals = [e.tag || '', e.nivel || '', fmt(r.iEsp, 3), fmt(r.iAlm, 3), fmt(r.bat.ahReq, 2), r.bat.ah === null ? '—' : fmt(r.bat.ah, 1), r.estado];
+      d.R(lx, yy - 6, lw, 6, 'FA-TABLA'); xx = lx;
+      cb2.forEach(function (cc, j) {
+        d.T(xx + 1.5, yy - 4.2, vals[j], 2.1, j === 6 && r.estado !== 'OK' ? 'FA-ALERTA' : 'FA-TEXTO'); xx += cc[1];
+        if (xx < lx + lw - 1) d.L(xx, yy, xx, yy - 6, 'FA-TABLA');
+      });
+      yy -= 6;
+    });
+
     // notas del sistema
-    yy -= 10;
-    d.R(lx, yy - 12, lw, 12, 'FA-TABLA'); d.T(lx + lw / 2, yy - 8.2, 'NOTAS SISTEMA ALARMAS CONTRA INCENDIO', 3.4, 'FA-TEXTO', 'c'); yy -= 12;
+    yy = tit(yy - 10, 'NOTAS SISTEMA ALARMAS CONTRA INCENDIO');
     var pr = P.params || {}, tE = Calc.num(pr.tEspera) || 24, tA = Calc.num(pr.tAlarma) || 15;
-    var notas = [
+    [
       'Panel con circuito dedicado 120 VAC/20 A mediante interruptor aprobado con opción de bloqueo, de acuerdo con NFPA 72 §10.6.5.4.',
       'Baterías con capacidad para ' + tE + ' h en espera y ' + tA + ' min en alarma (NFPA 72 §10.6.7.2.1.2); prever espacio para ampliación no menor de 20 %.',
       'Se debe contemplar un módulo aislador por cada nivel y cada 25 dispositivos por lazo.',
+      'Los dispositivos con doble conexión (base sonora, haz de luz) se alimentan además de un lazo de 24 VDC.',
+      'RFL: resistencia de fin de línea en los circuitos de notificación y de zona.',
       'Cantidades y especificaciones de los módulos según planos de planta; símbolos según NFPA 170 (2018), cap. 8.'
-    ];
-    notas.forEach(function (t, i) {
-      var lin = partir((i + 1) + '. ' + t, 2.3, lw - 6), alto = lin.length * 3.5 + 4;
-      d.R(lx, yy - alto, lw, alto, 'FA-TABLA');
+    ].forEach(function (t, i) {
+      var lin = partir((i + 1) + '. ' + t, 2.3, lw - 6), al = lin.length * 3.5 + 4;
+      d.R(lx, yy - al, lw, al, 'FA-TABLA');
       lin.forEach(function (l, k) { d.T(lx + 3, yy - 5 - k * 3.5, l, 2.3, 'FA-TEXTO'); });
-      yy -= alto;
+      yy -= al;
     });
-    return { ancho: lx + lw, yFin: Math.min(yy, fy) };
+    return { ancho: lx + lw, yFin: Math.min(yy, fy - anunc.length * 12) };
   }
 
   /* ======================= láminas completas ======================= */
@@ -461,6 +578,7 @@
       xs.forEach(function (v) { maxX = Math.max(maxX, v); });
     });
     var dy = 20 - minY; // desplazar para que el mínimo quede en y=20
+    d.cortes = (d.cortes || []).map(function (c) { return c + dy; });
     d.e.forEach(function (e) {
       if (e.k === 'P') e.p.forEach(function (q) { q[1] += dy; });
       else if (e.k === 'L') { e.a[1] += dy; e.a[3] += dy; } else e.a[1] += dy;
@@ -645,8 +763,127 @@
     return m;
   }
 
+  /* ======================= LÁMINAS 1100 × 750 mm CON CAJETÍN SINERGIA =======================
+   * Geometría tomada del bloque «D-01-2 SINERGIA CAJETÍN 1100X750» (parche-cajetin-1100x750): hoja de 1100 × 750.05 mm, marco interior a
+   * 51.81 mm del borde izquierdo y 13.1 mm del inferior, tira de cajetín de 127 mm a la derecha; área de dibujo 911 × 724 mm. Origen abajo-izquierda. */
+  var SW = 1100, SH = 750.05, AREA = { x0: 51.8138, x1: 963.0, y0: 13.1, y1: 737.0 }, SEP = 100;
+  var AW = AREA.x1 - AREA.x0, AH = AREA.y1 - AREA.y0;
+  function TP(x, y) { return [x + 70.2656, y - 12.5]; }
+  var CAJ_LINEAS = [
+    [-70.2656, 762.55, -70.2656, 12.5, 0.7], [1029.7344, 762.55, -70.2656, 762.55, 0.7], [1029.7344, 12.5, 1029.7344, 762.55, 0.7], [-70.2656, 12.5, 1029.7344, 12.5, 0.7],
+    [1019.7344, 749.5, -18.4518, 749.5], [1019.7344, 25.6, -18.4518, 25.6], [1019.7344, 749.5, 1019.7344, 25.6], [-18.4518, 749.5, -18.4518, 25.6],
+    [956.2344, 35.6, 956.2344, 25.6], [1000.4345, 169.4145, 1000.4345, 151.4145], [979.6285, 169.4145, 979.6285, 151.4145], [921.9751, 169.4145, 921.9751, 151.4145],
+    [892.7344, 169.4145, 892.7344, 25.6], [892.7344, 169.4145, 892.7344, 749.5],
+    [1019.7344, 35.6, 892.7344, 35.6], [1019.7344, 75.9158, 892.7344, 75.9158], [1019.7344, 169.4145, 892.7344, 169.4145], [1019.7344, 163.4145, 892.7344, 163.4145],
+    [1019.7344, 157.4145, 892.7344, 157.4145], [1019.7344, 102.5547, 892.7344, 102.5547], [1019.7344, 151.4145, 892.7344, 151.4145]
+  ];
+  var LOGO = { x: 927.4649, y: 108.8879, w: 57.7, h: 37.2 };
+
+  /* cajetín de una lámina sobre el dibujo h (Dib de 1100 × 750), desplazado ox */
+  function cajetinEn(h, dat, ox, conLogoTexto) {
+    CAJ_LINEAS.forEach(function (l) { var a = TP(l[0], l[1]), b = TP(l[2], l[3]); h.L(ox + a[0], a[1], ox + b[0], b[1], 'FA-CAJETIN', l[4] || 0); });
+    function tx(x, y, alto, t) { if (!t) return; var p = TP(x, y); h.T(ox + p[0], p[1] - alto, String(t).toUpperCase(), alto, 'FA-CAJETIN'); }
+    tx(899.1136, 167.9448, 3.0, '# Rev.'); tx(927.4339, 167.9448, 3.0, 'Fecha y Descripción'); tx(985.0803, 167.9448, 3.0, 'Dibujo'); tx(1002.6143, 167.9448, 3.0, 'Aprob.');
+    tx(899.1136, 162.2, 2.8, dat.rev); tx(927.4339, 162.2, 2.8, [dat.fecha, dat.desc].filter(Boolean).join('  ')); tx(985.0803, 162.2, 2.8, dat.dibujo);
+    tx(895.894, 99.4052, 3.0, 'Contenido');
+    partir(dat.titulo, 3.0, 36).slice(0, 2).forEach(function (l, i) { tx(899.5859, 94.2 - i * 4.4, 3.0, l); });
+    if (dat.hoja) tx(899.5859, 94.2 - 2 * 4.4, 3.0, dat.hoja);
+    tx(895.8175, 72.2345, 3.0, 'Información de registro público:');
+    tx(895.8175, 61.2004, 3.0, 'Propietario:'); if (dat.propietario) tx(895.8175 + 12 * 2.3 + 3, 61.2004, 3.0, dat.propietario);
+    tx(895.8175, 51.6708, 3.0, 'Plano de catastro:'); tx(895.8175, 42.7882, 3.0, 'Citas folio Real:');
+    tx(895.894, 31.4918, 3.0, 'Lámina'); tx(918.0, 31.3438, 3.0, dat.lamina); tx(959.5, 31.4918, 3.0, dat.fecha);
+    if (conLogoTexto) { var lg = TP(LOGO.x, LOGO.y); h.T(ox + lg[0] + 2, lg[1] + 22, 'SINERGIA', 9, 'FA-CAJETIN'); h.T(ox + lg[0] + 2, lg[1] + 10, 'INGENIERÍA', 9, 'FA-CAJETIN'); }
+  }
+
+  /* recorta el segmento a la franja [yb, ya] (ya > yb); devuelve null si queda fuera */
+  function recorta(x1, y1, x2, y2, ya, yb) {
+    var t0 = 0, t1 = 1, dy = y2 - y1;
+    if (dy === 0) return (y1 > ya || y1 < yb) ? null : [x1, y1, x2, y2];
+    var ta = (ya - y1) / dy, tb = (yb - y1) / dy, lo = Math.min(ta, tb), hi = Math.max(ta, tb);
+    t0 = Math.max(t0, lo); t1 = Math.min(t1, hi);
+    if (t0 >= t1) return null;
+    return [x1 + (x2 - x1) * t0, y1 + dy * t0, x1 + (x2 - x1) * t1, y1 + dy * t1];
+  }
+
+  /* reparte el dibujo en láminas (de arriba hacia abajo) cortando donde d.cortes lo permite; una sola escala para todas */
+  function repartirDib(d) {
+    var esc = Math.min(1, AW / d.w), tope = AH / esc, cortes = (d.cortes || []).slice(), partes = [], ini = d.h;
+    var fin = 0;
+    while (ini - fin > 1) {
+      var fn;
+      if (ini - fin <= tope) fn = fin;
+      else {
+        var c = cortes.filter(function (v) { return v < ini - 0.3 * tope && v >= ini - tope; });
+        fn = c.length ? Math.min.apply(null, c) : ini - tope;
+      }
+      partes.push([ini, fn]); ini = fn;
+    }
+    return { esc: esc, partes: partes };
+  }
+
+  /* arma las láminas: cada una es un Dib de 1100 × 750 (origen en 0) con cajetín y su parte del dibujo */
+  function hojas(tipo, ctx, extra) {
+    var d = lamina(tipo, ctx), R = repartirDib(d), P = ctx.proy, n = R.partes.length;
+    var titulos = { du: 'Diagrama unifilar de alarma contra incendio', matriz: 'Matriz de alarma contra incendio', calc: 'Cálculos de baterías y caída de tensión' };
+    var cod = { du: 'AI-01', matriz: 'AI-02', calc: 'AI-03' }[tipo];
+    var salida = [];
+    R.partes.forEach(function (pr, i) {
+      var ya = pr[0], yb = pr[1], h = new Dib(SW, SH), esc = R.esc;
+      var dat = Object.assign({ lamina: n > 1 ? cod.replace(/\d+$/, '') + ('0' + (parseInt(cod.slice(-2), 10) + i)).slice(-2) : cod, titulo: titulos[tipo], hoja: n > 1 ? 'Hoja ' + (i + 1) + ' de ' + n : '',
+        rev: P.revision && P.revision !== '0' ? P.revision : 'A', fecha: P.fecha || '', desc: 'Emisión para revisión', dibujo: 'SI', propietario: P.cliente || '' }, (extra && extra.datos) || {});
+      cajetinEn(h, dat, 0, !!(extra && extra.logoTexto));
+      function X(x) { return AREA.x0 + x * esc; }
+      function Y(y) { return AREA.y1 - (ya - y) * esc; }
+      d.e.forEach(function (e) {
+        if (e.k === 'L') { var s = recorta(e.a[0], e.a[1], e.a[2], e.a[3], ya, yb); if (s) h.L(X(s[0]), Y(s[1]), X(s[2]), Y(s[3]), e.c); }
+        else if (e.k === 'C') { if (e.a[1] <= ya && e.a[1] > yb) h.C(X(e.a[0]), Y(e.a[1]), e.a[2] * esc, e.c); }
+        else if (e.k === 'T') { if (e.a[1] <= ya && e.a[1] > yb) h.T(X(e.a[0]), Y(e.a[1]), e.t, e.h * esc, e.c, e.al, e.r); }
+        else if (e.k === 'P') {
+          if (e.f) { var cy = e.p.reduce(function (a, q) { return a + q[1]; }, 0) / e.p.length; if (cy <= ya && cy > yb) h.P(e.p.map(function (q) { return [X(q[0]), Y(q[1])]; }), e.z, e.c, true); }
+          else {
+            var m = e.p.length, lim = e.z ? m : m - 1;
+            for (var k = 0; k < lim; k++) {
+              var a = e.p[k], b = e.p[(k + 1) % m], s2 = recorta(a[0], a[1], b[0], b[1], ya, yb);
+              if (s2) h.L(X(s2[0]), Y(s2[1]), X(s2[2]), Y(s2[3]), e.c);
+            }
+          }
+        }
+      });
+      salida.push(h);
+    });
+    return { hojas: salida, esc: R.esc, partes: R.partes };
+  }
+
+  /* DXF con todas las láminas en espacio modelo, una al lado de otra (separación de 100 mm) */
+  function dxfHojas(tipo, ctx) {
+    var H = hojas(tipo, ctx, { logoTexto: true }), todo = new Dib(H.hojas.length * (SW + SEP), SH);
+    H.hojas.forEach(function (h, i) {
+      var ox = i * (SW + SEP);
+      h.e.forEach(function (e) {
+        var c = JSON.parse(JSON.stringify(e));
+        if (c.k === 'L') { c.a[0] += ox; c.a[2] += ox; } else if (c.k === 'C' || c.k === 'T') c.a[0] += ox; else if (c.k === 'P') c.p.forEach(function (q) { q[0] += ox; });
+        todo.e.push(c);
+      });
+    });
+    return aDXF(todo);
+  }
+
+  /* HTML imprimible: una página de 1100 × 750 mm por lámina, con el logo real */
+  function htmlHojas(tipo, ctx, urlLogo, titulo) {
+    var H = hojas(tipo, ctx), lg = TP(LOGO.x, LOGO.y);
+    var logo = urlLogo ? '<image href="' + xml(urlLogo) + '" x="' + (lg[0]).toFixed(2) + '" y="' + (SH - (lg[1] + LOGO.h)).toFixed(2) + '" width="' + LOGO.w + '" height="' + LOGO.h + '" preserveAspectRatio="xMidYMid meet"/>' : '';
+    var pag = H.hojas.map(function (h) {
+      var s = aSVG(h).replace('style="background:#fff"', 'style="display:block;background:#fff;font-family:Century Gothic,Montserrat,Arial,sans-serif" width="' + SW + 'mm" height="' + SH + 'mm"');
+      return '<div class="pag">' + s.replace('</svg>', logo + '</svg>') + '</div>';
+    }).join('');
+    return '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>' + xml(titulo || 'Lámina') + '</title><style>@page{size:' + SW + 'mm ' + SH + 'mm;margin:0}' +
+      'html,body{margin:0;padding:0;background:#fff}.pag{width:' + SW + 'mm;height:' + (SH - 0.1) + 'mm;overflow:hidden;page-break-after:always;break-after:page}.pag:last-child{page-break-after:auto;break-after:auto}' +
+      '@media screen{body{background:#888}.pag{margin:8px auto;background:#fff}}</style></head><body>' + pag + '</body></html>';
+  }
+
   /* ---------- API ---------- */
   global.Lamina = {
+    hojas: hojas, dxfHojas: dxfHojas, htmlHojas: htmlHojas,
     Dib: Dib, SIM: SIM, simboloDe: simboloDe, caja: caja, lamina: lamina, aSVG: aSVG, aDXF: aDXF,
     matrizBase: matrizBase, importarArchivo: importarArchivo, matrizDeGrid: matrizDeGrid,
     CAPAS: CAPAS
