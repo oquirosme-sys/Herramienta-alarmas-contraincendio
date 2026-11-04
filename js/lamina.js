@@ -367,6 +367,7 @@
     var circs = {}, res = {};
     P.caida.circuitos.forEach(function (c, i) { circs[c.id] = c; res[c.id] = cd.circuitos[i]; });
     function eqDe(id) { return equipos.filter(function (e) { return e.id === id; })[0]; }
+    function origen(c) { return c.alim && eqDe(c.alim) ? c.alim : c.fuente; }   // el montante sale del equipo que alimenta el lazo
     function idxNivel(n) { return niveles.indexOf(n); }
     function nivelDe(c) {
       if (idxNivel(c.nivel) >= 0) return c.nivel;
@@ -417,7 +418,7 @@
 
     /* ---- montantes: uno por equipo y tipo de circuito ---- */
     var llaves = [], posL = {};
-    P.caida.circuitos.forEach(function (c) { var k = c.fuente + '|' + c.tipo; if (llaves.indexOf(k) < 0) llaves.push(k); });
+    P.caida.circuitos.forEach(function (c) { var k = origen(c) + '|' + c.tipo; if (llaves.indexOf(k) < 0) llaves.push(k); });
     llaves.sort(function (a, b) {
       var A = a.split('|'), B = b.split('|');
       return equipos.indexOf(eqDe(A[0])) - equipos.indexOf(eqDe(B[0])) || ORD.indexOf(A[1]) - ORD.indexOf(B[1]);
@@ -483,7 +484,7 @@
     /* ---- renglones de lazo ---- */
     niveles.forEach(function (n, i) {
       filas[n].forEach(function (f, k) {
-        var y = yFila(i, k), c = f.c, capa = CAPA_DE_TIPO[f.tipo] || 'FA-SLC', key = c ? c.fuente + '|' + c.tipo : null;
+        var y = yFila(i, k), c = f.c, capa = CAPA_DE_TIPO[f.tipo] || 'FA-SLC', key = c ? origen(c) + '|' + c.tipo : null;
         var xs = key ? xR[key] : xChain - 30;
         if (key) { yMin[key] = Math.min(yMin[key], y); yMax[key] = Math.max(yMax[key], y); }
         var xFin = xEndCad;

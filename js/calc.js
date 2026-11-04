@@ -133,19 +133,29 @@
     return m;
   }
 
-  /* Amplificadores del proyecto (equipos de tipo AMP) por id */
-  function amplificadores(proy) { var m = {}; (proy.fuentes || []).forEach(function (f) { if (f.tipo === 'AMP') m[f.id] = f; }); return m; }
-  /* ¿La fila va en un lazo de voceo que pertenece a OTRO equipo que es amplificador? Entonces su corriente se carga a ese amplificador. */
-  function aCargoDeAmp(f, circs, amps, duenoId) {
-    var c = f.circ && circs && circs[f.circ];
-    return c && c.tipo === 'VOCEO' && c.fuente !== duenoId && amps && amps[c.fuente] ? amps[c.fuente] : null;
+  /* Equipos que pueden alimentar lazos de otros equipos: fuentes auxiliares y amplificadores (lista «fuentes» del proyecto), por id */
+  function alimentadores(proy) { var m = {}; (proy.fuentes || []).forEach(function (f) { m[f.id] = f; }); return m; }
+  /* Lazo al que se carga la corriente de una fila: con doble conexión a 24 V, el lazo de 24 V; si no, el lazo principal */
+  function lazoCorriente(d, f, circs) {
+    if (d && tipoLazo2De(d) === '24VDC') return (f.circ2 && circs[f.circ2]) || null;
+    return (f.circ && circs[f.circ]) || null;
+  }
+  /* Equipo (fuente auxiliar o amplificador) que carga con la corriente de la fila, según el campo «alim» (alimentado por) del lazo.
+   * Sin «alim», si el lazo pertenece a una fuente/amplificador, es ese. A un amplificador solo van los dispositivos de voceo. */
+  function duenoCarga(d, f, circs, alims) {
+    var c = d ? lazoCorriente(d, f, circs) : null;
+    if (!c) return null;
+    var e = (c.alim && alims[c.alim]) || alims[c.fuente] || null;
+    if (!e) return null;
+    if (e.tipo === 'AMP' && !(d.circuito === 'VOCEO')) return null;
+    return e;
   }
 
   function sumarFilas(cx, filas, circs, dueno) {
     var res = (filas || []).map(function (f) {
       var r = fila(cx, f);
-      var amp = dueno ? aCargoDeAmp(f, circs, dueno.amps, dueno.id) : null;
-      if (amp && r.d && r.d.circuito === 'VOCEO') { r.aCargoDe = amp; r.aviso = 'Se carga al amplificador ' + (amp.tag || ''); r.nivel = 'info'; return r; }
+      var ef = dueno && r.d ? duenoCarga(r.d, f, circs, dueno.amps) : null;
+      if (ef && ef.id !== dueno.id) { r.aCargoDe = ef; r.aviso = 'Se carga ' + (ef.tipo === 'AMP' ? 'al amplificador ' : 'a la fuente ') + (ef.tag || ''); r.nivel = 'info'; return r; }
       // el dispositivo debe ir en un lazo de su tipo (un detector SLC no va en un NAC)
       if (f.circ && !r.aviso) {
         var c = circs && circs[f.circ];
@@ -180,15 +190,31 @@
 
   /* Hoja BAT_FACP / BAT_TRP */
   function panel(cx, p, proy) {
-    var s = sumarFilas(cx, p.filas, mapaCircuitos(proy), { id: p.id, amps: amplificadores(proy) });
+    var s = sumarFilas(cx, p.filas, mapaCircuitos(proy), { id: p.id, amps: alimentadores(proy) });
     s.bat = bateria(cx, s.iEsp, s.iAlm, param(p, proy, 'tEspera'), param(p, proy, 'tAlarma'), param(p, proy, 'fs'));
     s.estado = s.errores ? 'REVISAR' : s.bat.estado;
     return s;
   }
 
+  /* Corriente de los dispositivos de OTROS equipos cuyos lazos tienen a este equipo como «alimentado por» */
+  function cargaExterna(cx, proy, f) {
+    var circs = mapaCircuitos(proy), alims = alimentadores(proy), ext = { iEsp: 0, iAlm: 0, n: 0 };
+    (proy.paneles || []).concat(proy.fuentes || []).forEach(function (eq) {
+      if (eq === f) return;
+      (eq.filas || []).forEach(function (fl) {
+        var rr = fila(cx, fl);
+        if (!rr.d) return;
+        var e = duenoCarga(rr.d, fl, circs, alims);
+        if (!e || e.id !== f.id) return;
+        ext.iEsp += rr.iEspT || 0; ext.iAlm += rr.iAlmT || 0; ext.n += num(fl.cant) || 0;
+      });
+    });
+    return ext;
+  }
+
   /* Hoja CALC_FUENTE_AUX: el consumo propio de la fuente se suma a espera y alarma; límite 80 % de I máx */
   function fuente(cx, f, proy) {
-    var s = sumarFilas(cx, f.filas, mapaCircuitos(proy), { id: f.id, amps: amplificadores(proy) });
+    var s = sumarFilas(cx, f.filas, mapaCircuitos(proy), { id: f.id, amps: alimentadores(proy) });
     var iPropia = num(f.iPropia) || 0;
     s.iEspDisp = s.iEsp;
     s.iAlmDisp = s.iAlm;
@@ -196,19 +222,9 @@
     if (f.tipo === 'AMP') {
       // Amplificador de voceo: lo que va por sus lazos de voceo (parlantes de cualquier panel) se carga aquí.
       // Alarma = consumo propio + carga de voceo; I máx. (ficha, plena potencia) es la capacidad y, si no hay parlantes asignados, la carga de diseño.
-      var circsA = mapaCircuitos(proy), ext = { iEsp: 0, iAlm: 0, n: 0 };
-      (proy.paneles || []).concat(proy.fuentes || []).forEach(function (eq) {
-        if (eq === f) return;
-        (eq.filas || []).forEach(function (fl) {
-          var c = fl.circ && circsA[fl.circ];
-          if (!c || c.tipo !== 'VOCEO' || c.fuente !== f.id) return;
-          var rr = fila(cx, fl);
-          if (!rr.d || rr.d.circuito !== 'VOCEO') return;
-          ext.iEsp += rr.iEspT || 0; ext.iAlm += rr.iAlmT || 0; ext.n += num(fl.cant) || 0;
-        });
-      });
+      var ext = cargaExterna(cx, proy, f);
       var carga = s.iAlm + ext.iAlm;
-      s.cargaVoceo = carga; s.nVoceo = ext.n;
+      s.cargaVoceo = carga; s.nVoceo = ext.n; s.cargado = ext;
       s.iEsp += ext.iEsp + iPropia;
       var usaFicha = carga === 0 && s.iMax !== null;
       s.iAlm = (usaFicha ? s.iMax : carga) + iPropia;
@@ -217,8 +233,10 @@
       s.verificacion = s.okCorriente === false ? 'ERROR: EXCEDE LA CAPACIDAD DEL AMPLIFICADOR'
         : (usaFicha ? 'Sin parlantes asignados: usa I máx. de ficha' : (carga === 0 ? 'Asigne parlantes a un lazo de voceo de este amplificador' : 'Carga de voceo ' + (Math.round(carga * 1000)) + ' mA'));
     } else {
-      s.iEsp += iPropia;
-      s.iAlm += iPropia;
+      var extF = cargaExterna(cx, proy, f);
+      s.cargado = extF;
+      s.iEsp += iPropia + extF.iEsp;
+      s.iAlm += iPropia + extF.iAlm;
       s.iPermitida = s.iMax !== null ? 0.8 * s.iMax : null;
       s.okCorriente = s.iPermitida === null ? null : s.iAlm <= s.iPermitida + 1e-9;
       s.verificacion = s.okCorriente === null ? 'Defina I máx de la fuente'
@@ -345,7 +363,7 @@
     tipoLazoDe: tipoLazoDe,
     tipoLazo2De: tipoLazo2De,
     parNacVoceo: parNacVoceo,
-    amplificadores: amplificadores,
+    alimentadores: alimentadores,
     PARAMS_DEF: PARAMS_DEF,
     num: num,
     preparar: preparar,

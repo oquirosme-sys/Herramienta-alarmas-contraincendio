@@ -140,3 +140,7 @@ Desde la pestaña **Diagrama unifilar**: **DXF en láminas con cajetín** y **PD
 - **Amplificadores**: los parlantes (circuito VOCEO) asignados a un lazo de voceo de un amplificador se **cargan a ese amplificador** y no al panel donde se digitaron; su corriente de alarma = consumo propio + carga de voceo (si no hay parlantes se usa la I máx. de ficha) y avisa si excede su capacidad. El estrobo de un parlante con estrobo sigue en el NAC del panel.
 - **Sensor de CO**: base `4098-9771` (CO-B, SLC + 24 VDC, símbolo NFPA 170 de detector de CO) y módulo temporal código 4 `4905-9835` (TC4). La corriente del TC4 no está en las fuentes consultadas: queda sin dato hasta digitarla de la ficha S4905-0006.
 - El Excel todavía no tiene la segunda columna de lazo ni la carga de voceo al amplificador.
+
+### «Alimentado por» y pestañas verticales
+- Cada lazo de tipo VOCEO, NAC, IDNAC, 24VDC o NAC+VOCEO tiene la columna **Alimentado por** (en la pestaña del panel y en Caída de tensión): se elige la fuente auxiliar o el amplificador que lo alimenta. Los dispositivos de esos lazos (de cualquier nivel o panel) se **cargan a ese equipo** (batería, capacidad y 80 % de la fuente) y no al panel donde se digitaron; a un amplificador solo van los de voceo. La pestaña de la fuente/amplificador lista los lazos que carga y el diagrama dibuja el montante desde ese equipo.
+- El botón **☰ Pestañas verticales / ⇄ Pestañas horizontales** (al final de la lista de pestañas) cambia la lista a una columna lateral; se recuerda la elección en el navegador.
