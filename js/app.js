@@ -404,7 +404,7 @@
     var cd = Calc.caida(S.cx, P);
     tab('caida', 'Caída de tensión', '', P.caida.circuitos.length ? (cd.errores ? 'error' : 'ok') : 'pend');
     tab('memoria', 'Memoria de cálculo');
-    tab('laminas', 'Láminas DXF');
+    tab('laminas', 'Diagrama unifilar');
     if (Auth.esAdmin()) tab('admin', '⚙ Administración', '', '', ' admin');
     tabsEl.innerHTML = h.join('');
   }
@@ -1182,7 +1182,7 @@
   }
   function vistaLaminas() {
     if (!S.lam) S.lam = 'du';
-    var h = '<div class="card"><h2>Láminas para exportar a DWG</h2>' +
+    var h = '<div class="card"><h2>Diagrama unifilar, matriz y cálculos</h2>' +
       '<p class="muted">Cada lámina se genera con los datos del proyecto (niveles, paneles, dispositivos, lazos, baterías y caídas de tensión) y se descarga como <b>DXF</b> con capas <code>FA-*</code> ' +
       '(ábralo en AutoCAD y guárdelo como DWG, o péguelo con <code>COPYCLIP</code> en su lámina). Símbolos: NFPA 170 (2018) cap. 8.</p>' +
       '<div class="acciones">' + LAMINAS.map(function (l) {

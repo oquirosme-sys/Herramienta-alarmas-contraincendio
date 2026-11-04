@@ -118,7 +118,7 @@ Con la URL y la clave configuradas, `js/supabase.js` reemplaza `Store` y `Auth` 
 
 ## Láminas DXF (DU · matriz · cálculos)
 
-Pestaña **Láminas DXF**: genera tres láminas con los datos del proyecto y las descarga como **DXF** (capas `FA-*`, unidades mm) para abrirlas en AutoCAD, guardarlas como DWG o pegarlas en la lámina del proyecto (`COPYCLIP` / `PEGARCLIP`).
+Pestaña **Diagrama unifilar**: genera tres láminas con los datos del proyecto y las descarga como **DXF** (capas `FA-*`, unidades mm) para abrirlas en AutoCAD, guardarlas como DWG o pegarlas en la lámina del proyecto (`COPYCLIP` / `PEGARCLIP`).
 
 - **Diagrama unifilar (DU)**: estructura de la lámina ED-6200 — FACP con módulos SLC/NAC, montantes por tipo de circuito (SLC verde, NAC café, voceo azul, 24 VDC rojo), una fila por nivel con la cadena de dispositivos (símbolo, cantidad y número de llamada), tablas de simbología, cableado y notas.
 - **Matriz de entradas / salidas**: estructura de la lámina ED-6201. Casillas por señal de entrada × función de salida, notas generales y numeradas. Se puede **importar el estándar del proyecto o de la marca** (PDF, Excel, Word o CSV; ver abajo) y se editan filas, columnas y notas.
