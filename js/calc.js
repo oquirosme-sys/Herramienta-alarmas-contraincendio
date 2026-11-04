@@ -9,11 +9,11 @@
 
 
   /* Tipos de lazo / salida de un panel (SLC, NAC, IDNAC, 24 VDC, voceo, IDC) */
-  var TIPOS_LAZO = ['SLC', 'NAC', 'IDNAC', '24VDC', 'VOCEO', 'IDC'];
+  var TIPOS_LAZO = ['SLC', 'NAC', 'IDNAC', '24VDC', 'VOCEO', 'NAC+VOCEO', 'IDC'];
   // tipo de lazo que le corresponde a un dispositivo según la columna «circuito» del catálogo
-  var LAZO_DE_CIRCUITO = { 'SLC': 'SLC', 'NAC': 'NAC', 'IDNAC': 'IDNAC', 'FUENTE AUX': '24VDC', 'VOCEO': 'VOCEO', 'IDC': 'IDC', 'ZONA': 'IDC' };
+  var LAZO_DE_CIRCUITO = { 'SLC': 'SLC', 'NAC': 'NAC', 'IDNAC': 'IDNAC', 'FUENTE AUX': '24VDC', 'VOCEO': 'VOCEO', 'NAC+VOCEO': 'NAC+VOCEO', 'IDC': 'IDC', 'ZONA': 'IDC' };
   // tipos de lazo en los que puede ir cada tipo de dispositivo (si no figura, no se valida)
-  var LAZOS_PERMITIDOS = { 'SLC': ['SLC'], 'NAC': ['NAC'], 'IDNAC': ['IDNAC'], 'FUENTE AUX': ['24VDC', 'NAC'], 'VOCEO': ['VOCEO', 'NAC'], 'IDC': ['IDC'], 'ZONA': ['IDC'] };
+  var LAZOS_PERMITIDOS = { 'SLC': ['SLC'], 'NAC': ['NAC', 'NAC+VOCEO'], 'IDNAC': ['IDNAC'], 'FUENTE AUX': ['24VDC', 'NAC'], 'VOCEO': ['VOCEO', 'NAC', 'NAC+VOCEO'], 'NAC+VOCEO': ['NAC+VOCEO'], 'IDC': ['IDC'], 'ZONA': ['IDC'] };
 
   function tipoLazoDe(d) { return (d && LAZO_DE_CIRCUITO[d.circuito]) || 'NAC'; }
 

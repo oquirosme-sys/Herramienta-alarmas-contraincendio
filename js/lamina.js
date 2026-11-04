@@ -7,10 +7,10 @@
   /* ---------- capas (nombre → color AutoCAD / color en pantalla) ---------- */
   var CAPAS = {
     'FA-MARCO': [7, '#111'], 'FA-TEXTO': [7, '#111'], 'FA-SIMBOLOS': [7, '#111'], 'FA-TABLA': [7, '#111'],
-    'FA-SLC': [3, '#1b9e3a'], 'FA-NAC': [30, '#a0522d'], 'FA-IDNAC': [6, '#a02c8f'], 'FA-VOCEO': [5, '#1f3bd1'],
+    'FA-SLC': [3, '#1b9e3a'], 'FA-NAC': [30, '#a0522d'], 'FA-IDNAC': [6, '#a02c8f'], 'FA-VOCEO': [5, '#1f3bd1'], 'FA-NAC-VOCEO': [20, '#c2410c'],
     'FA-24VDC': [1, '#d11f1f'], 'FA-IDC': [4, '#0a9fb0'], 'FA-ENCABEZADO': [5, '#1f4e79'], 'FA-ALERTA': [1, '#c00000'], 'FA-TEXTO-BLANCO': [7, '#fff']
   };
-  var CAPA_DE_TIPO = { SLC: 'FA-SLC', NAC: 'FA-NAC', IDNAC: 'FA-IDNAC', VOCEO: 'FA-VOCEO', '24VDC': 'FA-24VDC', IDC: 'FA-IDC' };
+  var CAPA_DE_TIPO = { SLC: 'FA-SLC', NAC: 'FA-NAC', IDNAC: 'FA-IDNAC', VOCEO: 'FA-VOCEO', 'NAC+VOCEO': 'FA-NAC-VOCEO', '24VDC': 'FA-24VDC', IDC: 'FA-IDC' };
 
   /* ---------- símbolos NFPA 170 ---------- */
   var SIM = {};
@@ -320,8 +320,8 @@
     var niveles = P.niveles.length ? P.niveles : ['NIVEL 1'];
     var pitch = Math.max(56, Math.min(72, 600 / niveles.length)), slot = pitch / 3, ESC = 1.35;
     var yBase = yTop - 60 - niveles.length * pitch; // fila del nivel más bajo
-    var xR = { SLC: x0 + 215, NAC: x0 + 229, IDNAC: x0 + 229, VOCEO: x0 + 243, '24VDC': x0 + 257, IDC: x0 + 215 };
-    var SLOT = { SLC: 0, IDC: 0, NAC: 1, IDNAC: 1, VOCEO: 2, '24VDC': 2 };
+    var xR = { SLC: x0 + 215, NAC: x0 + 229, IDNAC: x0 + 229, VOCEO: x0 + 243, 'NAC+VOCEO': x0 + 271, '24VDC': x0 + 257, IDC: x0 + 215 };
+    var SLOT = { SLC: 0, IDC: 0, NAC: 1, IDNAC: 1, VOCEO: 2, 'NAC+VOCEO': 2, '24VDC': 2 };
     var xChain = x0 + 285, paso = 24;
     var circs = {}; P.caida.circuitos.forEach(function (c) { circs[c.id] = c; });
     var usados = [], numDe = {}; // leyenda
@@ -364,7 +364,7 @@
     var tiposUsados = {};
     Object.keys(porNivel).forEach(function (nv) { Object.keys(porNivel[nv]).forEach(function (k) { porNivel[nv][k].forEach(function (g) { tiposUsados[g.tipo] = 1; }); }); });
     P.caida.circuitos.forEach(function (c) { tiposUsados[c.tipo] = 1; });
-    var verRiser = ['SLC', 'NAC', 'VOCEO', '24VDC'].filter(function (t) { return tiposUsados[t] || (t === 'NAC' && tiposUsados.IDNAC); });
+    var verRiser = ['SLC', 'NAC', 'VOCEO', 'NAC+VOCEO', '24VDC'].filter(function (t) { return tiposUsados[t] || (t === 'NAC' && tiposUsados.IDNAC); });
     verRiser.forEach(function (t, idx) {
       var yc = fy + fh - 10 - idx * 6;
       d.L(fx + fw, yc, xR[t], yc, CAPA_DE_TIPO[t]);

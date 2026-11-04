@@ -161,7 +161,7 @@ LISTA_DISP_TODOS = 'OFFSET(BD_DISPOSITIVOS!$B$6,0,0,COUNTA(BD_DISPOSITIVOS!$D$6:
 LISTA_CABLES = 'OFFSET(BD_CABLES!$B$6,0,0,COUNTA(BD_CABLES!$D$6:$D$%d),1)' % NMAX_CAB
 LISTA_EQUIPOS = 'PROYECTO!$C$%d:$C$%d' % TAB
 LISTA_LAZOS = 'OFFSET(CAIDA_TENSION!$U$16,0,0,MAX(1,COUNTIF(CAIDA_TENSION!$U$16:$U$45,"?*")),1)'
-TIPOS_LAZO_XL = 'SLC,NAC,IDNAC,24VDC,VOCEO,IDC'
+TIPOS_LAZO_XL = 'SLC,NAC,IDNAC,24VDC,VOCEO,NAC+VOCEO,IDC'
 
 
 def lista_modelos(fila):
@@ -376,8 +376,8 @@ def hoja_equipo(wb, nombre, eq):
         # auxiliares (columnas ocultas): tipo de dispositivo y tipo del lazo asignado, para avisar si no corresponden
         calc(ws, 'S%d' % r, '=IF($C{r}="","",IFERROR(INDEX(BD_DISPOSITIVOS!$J$6:$J${n},MATCH($C{r},BD_DISPOSITIVOS!$B$6:$B${n},0)),""))'.format(r=r, n=NMAX_DISP))
         calc(ws, 'T%d' % r, '=IF($M{r}="","",IFERROR(INDEX(CAIDA_TENSION!$D$16:$D$45,MATCH($M{r},CAIDA_TENSION!$U$16:$U$45,0)),""))'.format(r=r))
-        compat = ('IF($S{r}="SLC",$T{r}="SLC",IF($S{r}="NAC",$T{r}="NAC",IF($S{r}="IDNAC",$T{r}="IDNAC",IF($S{r}="FUENTE AUX",OR($T{r}="24VDC",$T{r}="NAC"),'
-                  'IF($S{r}="VOCEO",OR($T{r}="VOCEO",$T{r}="NAC"),IF(OR($S{r}="IDC",$S{r}="ZONA"),$T{r}="IDC",TRUE))))))').format(r=r)
+        compat = ('IF($S{r}="SLC",$T{r}="SLC",IF($S{r}="NAC",OR($T{r}="NAC",$T{r}="NAC+VOCEO"),IF($S{r}="IDNAC",$T{r}="IDNAC",IF($S{r}="FUENTE AUX",OR($T{r}="24VDC",$T{r}="NAC"),'
+                  'IF($S{r}="NAC+VOCEO",$T{r}="NAC+VOCEO",IF($S{r}="VOCEO",OR($T{r}="VOCEO",$T{r}="NAC",$T{r}="NAC+VOCEO"),IF(OR($S{r}="IDC",$S{r}="ZONA"),$T{r}="IDC",TRUE)))))))').format(r=r)
         calc(ws, 'P%d' % r, ('=IF(AND($C{r}="",$G{r}=""),"",IF($C{r}="","Elija el modelo",IF(ISNA(MATCH($C{r},{key},0)),"Modelo no está en el catálogo",'
                              'IF(OR($H{r}="",$J{r}=""),"Corriente sin definir en el catálogo: digítela en las columnas MANUAL",'
                              'IF(OR($G{r}="",$G{r}<=0),"Digite la cantidad",'

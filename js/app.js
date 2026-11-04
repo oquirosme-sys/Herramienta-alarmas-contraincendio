@@ -141,7 +141,7 @@
   }
 
   function tipoPorNombre(nombre) {
-    var m = String(nombre || '').toUpperCase().replace(/\s+/g, '').match(/^(IDNAC|SLC|NAC|VOCEO|IDC|24V)/);
+    var m = String(nombre || '').toUpperCase().replace(/\s+/g, '').match(/^(NAC\+VOCEO|IDNAC|SLC|NAC|VOCEO|IDC|24V)/);
     return m ? (m[1] === '24V' ? '24VDC' : m[1]) : 'NAC';
   }
 
@@ -208,7 +208,7 @@
     var n = S.proy.caida.circuitos.filter(function (c) { return c.fuente === eq && c.tipo === tipo; }).length + 1;
     return { id: uid('c'), fuente: eq, tipo: tipo, circuito: (tipo === '24VDC' ? '24 VDC' : tipo) + ' ' + n, nivel: '', desc: '', otros: null, cable: buscarCable(tipo === 'VOCEO' ? '5220FL' : '5220UL'), long: null };
   }
-  function etiquetaTipo(t) { return t === '24VDC' ? '24 VDC' : (t === 'VOCEO' ? 'Voceo' : t); }
+  function etiquetaTipo(t) { return t === '24VDC' ? '24 VDC' : (t === 'VOCEO' ? 'Voceo' : (t === 'NAC+VOCEO' ? 'NAC + Voceo' : t)); }
   function optsTiposLazo(sel) { return opts(Calc.TIPOS_LAZO.map(function (t) { return { v: t, l: etiquetaTipo(t) }; }), sel); }
   function lazosDe(eqId) { return S.proy.caida.circuitos.filter(function (c) { return c.fuente === eqId; }); }
   function optsLazos(eq, sel) {
@@ -732,7 +732,7 @@
           '<td><button class="btn-icon del" title="Eliminar lazo" data-act="circ-del" data-id="' + esc(c.id) + '">✕</button></td></tr>';
       }).join('') : '<tr><td colspan="10" class="vacio">Sin lazos. Agregue los que salen de este equipo (SLC, NAC, 24 VDC…) para poder asignar los dispositivos.</td></tr>') +
       '</tbody></table></div><div class="card-b" style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid var(--border)">' +
-      Calc.TIPOS_LAZO.map(function (t) { return '<button class="btn btn-sm" data-act="lazo-add" data-eq="' + esc(eq.id) + '" data-tipo="' + t + '">+ ' + esc(etiquetaTipo(t)) + '</button>'; }).join('') +
+      Calc.TIPOS_LAZO.map(function (t) { return '<button class="btn btn-sm" data-act="lazo-add" data-eq="' + esc(eq.id) + '" data-tipo="' + t + '"' + (t === 'NAC+VOCEO' ? ' title="NAC y voceo en la misma tubería"' : '') + '>+ ' + esc(etiquetaTipo(t)) + '</button>'; }).join('') +
       '</div></section>');
 
     // Dispositivos
