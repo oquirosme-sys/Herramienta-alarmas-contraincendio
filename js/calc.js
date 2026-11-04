@@ -154,13 +154,22 @@
     var iPropia = num(f.iPropia) || 0;
     s.iEspDisp = s.iEsp;
     s.iAlmDisp = s.iAlm;
-    s.iEsp += iPropia;
-    s.iAlm += iPropia;
     s.iMax = num(f.iMax);
-    s.iPermitida = s.iMax !== null ? 0.8 * s.iMax : null;
-    s.okCorriente = s.iPermitida === null ? null : s.iAlm <= s.iPermitida + 1e-9;
-    s.verificacion = s.okCorriente === null ? 'Defina I máx de la fuente'
-      : (s.okCorriente ? 'OK' : 'ERROR: EXCEDE 80% DE LA FUENTE');
+    if (f.tipo === 'AMP') {
+      // Amplificador de voceo: en espera consume su corriente propia; en alarma, la de plena potencia (ficha). No limita al 80 %.
+      s.iEsp += iPropia;
+      s.iAlm += s.iMax || 0;
+      s.iPermitida = null;
+      s.okCorriente = null;
+      s.verificacion = s.iMax === null ? 'Defina I alarma (A) del amplificador' : 'Carga a plena potencia';
+    } else {
+      s.iEsp += iPropia;
+      s.iAlm += iPropia;
+      s.iPermitida = s.iMax !== null ? 0.8 * s.iMax : null;
+      s.okCorriente = s.iPermitida === null ? null : s.iAlm <= s.iPermitida + 1e-9;
+      s.verificacion = s.okCorriente === null ? 'Defina I máx de la fuente'
+        : (s.okCorriente ? 'OK' : 'ERROR: EXCEDE 80% DE LA FUENTE');
+    }
     s.bat = bateria(cx, s.iEsp, s.iAlm, param(f, proy, 'tEspera'), param(f, proy, 'tAlarma'), param(f, proy, 'fs'));
     s.estado = (s.errores || s.okCorriente === false) ? 'REVISAR' : s.bat.estado;
     return s;

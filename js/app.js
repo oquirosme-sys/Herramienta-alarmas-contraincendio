@@ -180,6 +180,17 @@
     };
   }
 
+  /* Amplificador de voceo: se guarda en la misma lista que las fuentes (tipo 'AMP') y tiene su propia sección y pestaña */
+  function nuevoAmplificador(nivel) {
+    var P = S.proy, n = P.fuentes.filter(function (x) { return x.tipo === 'AMP'; }).length + 1;
+    return {
+      id: uid('fu'), tipo: 'AMP', tag: tagLibre('AMP-' + ('0' + n).slice(-2)), nivel: nivel || '',
+      panelId: (P.paneles[0] || {}).id || '', descripcion: '', iMax: null, iPropia: null,
+      tEspera: null, tAlarma: null, fs: null, filas: []
+    };
+  }
+  function esAmp(e) { return !!e && e.tipo === 'AMP'; }
+
   /* Proyecto en blanco con un solo nivel y su panel principal (FACP) */
   function proyectoConPrimerNivel(nombre, nivel) {
     var p = nuevoProyecto(nombre), prev = S.proy;
@@ -388,7 +399,7 @@
     P.paneles.forEach(function (p) { tab('p:' + p.id, p.tag || '(sin TAG)', p.nivel, estadoEquipo(Calc.panel(S.cx, p, P), p)); });
     h.push('<button class="seccion mas" data-act="nivel-nuevo" title="Agregar un nivel con su panel/transponder">+ Nivel</button>');
     if (P.fuentes.length) h.push('<span class="seccion-sep"></span>');
-    P.fuentes.forEach(function (f) { tab('f:' + f.id, f.tag || '(sin TAG)', 'fuente aux.', estadoEquipo(Calc.fuente(S.cx, f, P), f)); });
+    P.fuentes.forEach(function (f) { tab('f:' + f.id, f.tag || '(sin TAG)', esAmp(f) ? 'amplificador' : 'fuente aux.', estadoEquipo(Calc.fuente(S.cx, f, P), f)); });
     h.push('<span class="seccion-sep"></span>');
     var cd = Calc.caida(S.cx, P);
     tab('caida', 'Caída de tensión', '', P.caida.circuitos.length ? (cd.errores ? 'error' : 'ok') : 'pend');
@@ -515,7 +526,7 @@
   }
   function optsEquipos(sel) {
     var l = S.proy.paneles.map(function (p) { return { v: p.id, l: p.tag + (p.nivel ? ' · ' + p.nivel : '') }; })
-      .concat(S.proy.fuentes.map(function (f) { return { v: f.id, l: f.tag + ' (fuente)' }; }));
+      .concat(S.proy.fuentes.map(function (f) { return { v: f.id, l: f.tag + (esAmp(f) ? ' (amplificador)' : ' (fuente)') }; }));
     var h = opts(l, null, '— fuente / panel —');
     if (sel) h = h.replace('value="' + esc(sel) + '"', 'value="' + esc(sel) + '" selected');
     if (sel && !porId(S.proy.paneles, sel) && !porId(S.proy.fuentes, sel)) h += '<option value="' + esc(sel) + '" selected>(eliminado)</option>';
@@ -598,17 +609,42 @@
 
     // Fuentes
     h.push('<section class="card"><div class="card-h"><h3>Fuentes de poder auxiliares</h3><button class="btn btn-sm primary" data-act="fuente-add">+ Fuente auxiliar</button></div><div class="card-b flush tabla-wrap">');
-    if (!P.fuentes.length) {
+    var soloFuentes = P.fuentes.filter(function (x) { return !esAmp(x); });
+    if (!soloFuentes.length) {
       h.push('<div class="vacio">Sin fuentes auxiliares (NAC expander / bases sonoras). Agregue una si el proyecto la requiere.</div>');
     } else {
       h.push('<table class="t"><thead><tr><th>TAG</th><th>Nivel</th><th>Alimentada desde</th><th class="num">I máx. (A)</th><th class="num">I propia (A)</th><th class="num">I alarma (A)</th><th>Verificación 80 %</th><th class="num">Ah requerido</th><th class="num">Batería (Ah)</th><th>Estado</th><th></th></tr></thead><tbody>');
-      P.fuentes.forEach(function (f) {
+      soloFuentes.forEach(function (f) {
         var b = function (k, t) { return 'data-o="fuente" data-id="' + esc(f.id) + '" data-k="' + k + '"' + (t ? ' data-t="' + t + '" type="number" step="any"' : ''); };
         h.push('<tr><td><input class="in w-sm" ' + b('tag') + ' data-re="tabs" value="' + esc(f.tag) + '"></td>' +
           '<td><select class="in w-md" ' + b('nivel') + '>' + optsNiveles(f.nivel) + '</select></td>' +
           '<td><select class="in w-sm" ' + b('panelId') + '>' + opts(P.paneles.map(function (p) { return { v: p.id, l: p.tag }; }), f.panelId, '—') + '</select></td>' +
           '<td><input class="in w-xs" ' + b('iMax', 'num') + ' value="' + fmtN(f.iMax) + '"></td>' +
           '<td><input class="in w-xs" ' + b('iPropia', 'num') + ' value="' + fmtN(f.iPropia) + '"></td>' +
+          '<td class="calc num" data-out="ia:' + f.id + '"></td><td data-out="ver:' + f.id + '"></td>' +
+          '<td class="calc num" data-out="ah:' + f.id + '"></td><td class="calc num" data-out="bat:' + f.id + '"></td><td data-out="est:' + f.id + '"></td>' +
+          '<td style="white-space:nowrap"><button class="btn btn-sm" data-act="ir" data-tab="f:' + esc(f.id) + '">Abrir →</button>' +
+          '<button class="btn-icon" title="Duplicar" data-act="fuente-dup" data-id="' + esc(f.id) + '">⧉</button>' +
+          '<button class="btn-icon del" title="Eliminar" data-act="fuente-del" data-id="' + esc(f.id) + '">✕</button></td></tr>');
+      });
+      h.push('</tbody></table>');
+    }
+    h.push('</div></section>');
+
+    // Amplificadores de voceo
+    var amps = P.fuentes.filter(esAmp);
+    h.push('<section class="card"><div class="card-h"><h3>Amplificadores de voceo</h3><button class="btn btn-sm primary" data-act="amp-add">+ Amplificador</button></div><div class="card-b flush tabla-wrap">');
+    if (!amps.length) {
+      h.push('<div class="vacio">Sin amplificadores. Agregue uno por cada amplificador de voceo / evacuación por voz (sus parlantes se asignan en su pestaña a un lazo de voceo).</div>');
+    } else {
+      h.push('<table class="t"><thead><tr><th>TAG</th><th>Nivel</th><th>Alimentado desde</th><th class="num">I alarma plena potencia (A)</th><th class="num">I espera (A)</th><th class="num">I alarma total (A)</th><th>Verificación</th><th class="num">Ah requerido</th><th class="num">Batería (Ah)</th><th>Estado</th><th></th></tr></thead><tbody>');
+      amps.forEach(function (f) {
+        var b = function (k, t) { return 'data-o="fuente" data-id="' + esc(f.id) + '" data-k="' + k + '"' + (t ? ' data-t="' + t + '" type="number" step="any"' : ''); };
+        h.push('<tr><td><input class="in w-sm" ' + b('tag') + ' data-re="tabs" value="' + esc(f.tag) + '"></td>' +
+          '<td><select class="in w-md" ' + b('nivel') + '>' + optsNiveles(f.nivel) + '</select></td>' +
+          '<td><select class="in w-sm" ' + b('panelId') + '>' + opts(P.paneles.map(function (p) { return { v: p.id, l: p.tag }; }), f.panelId, '—') + '</select></td>' +
+          '<td><input class="in w-xs" ' + b('iMax', 'num') + ' value="' + fmtN(f.iMax) + '" placeholder="Ej.: 6"></td>' +
+          '<td><input class="in w-xs" ' + b('iPropia', 'num') + ' value="' + fmtN(f.iPropia) + '" placeholder="Ej.: 0.1"></td>' +
           '<td class="calc num" data-out="ia:' + f.id + '"></td><td data-out="ver:' + f.id + '"></td>' +
           '<td class="calc num" data-out="ah:' + f.id + '"></td><td class="calc num" data-out="bat:' + f.id + '"></td><td data-out="est:' + f.id + '"></td>' +
           '<td style="white-space:nowrap"><button class="btn btn-sm" data-act="ir" data-tab="f:' + esc(f.id) + '">Abrir →</button>' +
@@ -654,24 +690,27 @@
     var B = function (k, t, re) { return { o: o, id: eq.id, k: k, t: t, re: re }; };
     var pp = P.params;
     var h = [];
-    var titulo = esF ? 'Fuente auxiliar ' + eq.tag : (eq.tipo === 'FACP' ? 'Panel ' : 'Transponder ') + eq.tag;
+    var esA = esF && esAmp(eq);
+    var titulo = esA ? 'Amplificador ' + eq.tag : esF ? 'Fuente auxiliar ' + eq.tag : (eq.tipo === 'FACP' ? 'Panel ' : 'Transponder ') + eq.tag;
     h.push('<div class="encabezado"><div><h2>' + esc(titulo) + (eq.nivel ? ' · ' + esc(eq.nivel) : '') + '</h2>' +
-      '<div class="sub">' + (esF ? 'Cálculo de fuente de poder auxiliar (NAC expander / bases sonoras) — NFPA 72:2022'
+      '<div class="sub">' + (esA ? 'Cálculo de batería del amplificador de voceo — NFPA 72:2022 §10.6.7 (en alarma consume la corriente de plena potencia)' : esF ? 'Cálculo de fuente de poder auxiliar (NAC expander / bases sonoras) — NFPA 72:2022'
         : 'Cálculo de baterías — NFPA 72:2022 §10.6.7. Cada panel/transponder calcula su propia batería (respalda solo su carga local).') + '</div></div>' +
       '<div class="acciones"><button class="btn" data-act="ir" data-tab="proyecto">← Proyecto</button>' +
-      '<button class="btn danger" data-act="' + o + '-del" data-id="' + esc(eq.id) + '">Eliminar ' + (esF ? 'fuente' : 'panel') + '</button></div></div>');
+      '<button class="btn danger" data-act="' + o + '-del" data-id="' + esc(eq.id) + '">Eliminar ' + (esA ? 'amplificador' : esF ? 'fuente' : 'panel') + '</button></div></div>');
 
     // Datos del equipo
     h.push('<section class="card"><div class="card-h"><h3>Datos del equipo</h3><span class="nota">Parámetros vacíos = se usa el valor del proyecto (en gris)</span></div><div class="card-b"><div class="grid c4">' +
-      campo(esF ? 'Fuente / TAG' : 'Panel / TAG', B('tag', null, 'tabs'), eq.tag) +
-      (esF ? campo('Alimentada desde', B('panelId'), eq.panelId, { opciones: opts(P.paneles.map(function (p) { return { v: p.id, l: p.tag }; }), eq.panelId, '—') })
+      campo(esA ? 'Amplificador / TAG' : esF ? 'Fuente / TAG' : 'Panel / TAG', B('tag', null, 'tabs'), eq.tag) +
+      (esF ? campo(esA ? 'Alimentado desde' : 'Alimentada desde', B('panelId'), eq.panelId, { opciones: opts(P.paneles.map(function (p) { return { v: p.id, l: p.tag }; }), eq.panelId, '—') })
         : campo('Tipo', B('tipo', null, 'tabs'), eq.tipo, { opciones: opts([{ v: 'FACP', l: 'FACP — panel principal' }, { v: 'TRP', l: 'TRP — transponder' }], eq.tipo) })) +
       campo('Nivel / ubicación', B('nivel', null, 'tabs'), eq.nivel, { opciones: optsNiveles(eq.nivel) }) +
       campo('Descripción', B('descripcion'), eq.descripcion, { attrs: { placeholder: 'Ej.: Panel principal, sala de control' } }) +
       campo('Tiempo de espera (h)', B('tEspera', 'num'), eq.tEspera, { attrs: { placeholder: pp.tEspera } }) +
       campo('Tiempo de alarma (min)', B('tAlarma', 'num'), eq.tAlarma, { attrs: { placeholder: pp.tAlarma, list: 'dl-talarma' }, ayuda: '5 min alarma · 15 min voceo/EVACS' }) +
       campo('Factor de seguridad (%)', B('fs', 'pct'), eq.fs, { attrs: { placeholder: +(pp.fs * 100).toFixed(2) } }) +
-      (esF ? campo('I máx. fuente (A) — ficha', B('iMax', 'num'), eq.iMax, { ayuda: 'Ej.: Notifier FCPS-24S8 = 8 A. Se limita al 80 %' }) +
+      (esA ? campo('I alarma a plena potencia (A) — ficha', B('iMax', 'num'), eq.iMax, { ayuda: 'Corriente a 24 VDC con el amplificador a potencia nominal' }) +
+        campo('I en espera (A) — ficha', B('iPropia', 'num'), eq.iPropia, { ayuda: 'Consumo propio en reposo' })
+        : esF ? campo('I máx. fuente (A) — ficha', B('iMax', 'num'), eq.iMax, { ayuda: 'Ej.: Notifier FCPS-24S8 = 8 A. Se limita al 80 %' }) +
         campo('I propia de la fuente (A)', B('iPropia', 'num'), eq.iPropia, { ayuda: 'Se suma en espera y en alarma' }) : '') +
       '</div><datalist id="dl-talarma"><option value="5"><option value="15"></datalist></div></section>');
 
@@ -1452,6 +1491,12 @@
       proyectoCambiado(); render();
       toast('Fuente ' + f.tag + ' agregada');
     },
+    'amp-add': function () {
+      var f = nuevoAmplificador('');
+      S.proy.fuentes.push(f);
+      proyectoCambiado(); render();
+      toast('Amplificador ' + f.tag + ' agregado: digite sus corrientes de ficha');
+    },
     'fuente-dup': function (b) {
       var P = S.proy, i = P.fuentes.findIndex(function (x) { return x.id === b.dataset.id; });
       var c = nuevosIdsEquipo(P.fuentes[i], 'fu');
@@ -1461,7 +1506,7 @@
     },
     'fuente-del': function (b) {
       var P = S.proy, f = porId(P.fuentes, b.dataset.id);
-      confirmar('Eliminar fuente auxiliar', '¿Eliminar <b>' + esc(f.tag) + '</b>?').then(function (ok) {
+      confirmar(esAmp(f) ? 'Eliminar amplificador' : 'Eliminar fuente auxiliar', '¿Eliminar <b>' + esc(f.tag) + '</b>?').then(function (ok) {
         if (!ok) return;
         quitarLazos(f.id);
         P.fuentes = P.fuentes.filter(function (x) { return x !== f; });
