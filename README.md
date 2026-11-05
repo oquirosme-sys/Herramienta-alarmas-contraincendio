@@ -116,6 +116,13 @@ Con la URL y la clave configuradas, `js/supabase.js` reemplaza `Store` y `Auth` 
 - Un admin no puede quitarse a sí mismo el rol ni desactivarse.
 - **Trabajo simultáneo:** cada guardado incrementa `version`; si otra persona guardó el mismo proyecto mientras se editaba, la app ofrece guardar los cambios propios como copia o cargar la versión nueva (no se pisan datos en silencio).
 
+## Catálogo de dispositivos (v9)
+
+- Paneles por marca: Simplex 4007ES, 2004/2008/2050/2250-9101; Notifier NFS2-640, NFS-640, NFS-320SYS; Siemens FC901, FC2025, FC2050.
+- Línea **Foundation** de Simplex (catálogo v7): sensores MX, módulos, estaciones manuales, aisladores, bases, detectores convencionales (circuito `ZONA`), detectores de ducto, anunciadores, fuente RPS y estrobos TrueAlert.
+- Los convencionales de 4 hilos se asignan a su zona **y** a 24 VDC (`circuito2`); no se tratan como SLC.
+- Corrientes sin dato de ficha quedan en blanco (la app muestra «Corriente sin definir»); completarlas en Administración → Dispositivos. Los dispositivos nuevos llegan a los catálogos guardados sin pisar los cambios del admin.
+
 ## Láminas DXF (DU · matriz · cálculos)
 
 Pestaña **Diagrama unifilar**: genera tres láminas con los datos del proyecto y las descarga como **DXF** (capas `FA-*`, unidades mm) para abrirlas en AutoCAD, guardarlas como DWG o pegarlas en la lámina del proyecto (`COPYCLIP` / `PEGARCLIP`).

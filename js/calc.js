@@ -20,7 +20,7 @@
   function tipoLazoDe(d) {
     if (!d) return 'NAC';
     if (/^J(-PH)?$/.test(d.tag || '')) return 'TEL';           // jack y teléfono de bomberos: lazo de teléfonos
-    if (d.circuito2 === '24VDC') return 'SLC';                 // con alimentación a 24 V se direcciona por SLC
+    if (d.circuito2 === '24VDC' && d.circuito !== 'ZONA') return 'SLC';   // con alimentación a 24 V se direcciona por SLC (los convencionales de 4 hilos van a su zona + 24 V)
     if (d.circuito === 'NAC+VOCEO') return 'NAC';              // parlante + estrobo: el estrobo va al NAC y el parlante al voceo
     return LAZO_DE_CIRCUITO[d.circuito] || 'NAC';
   }
