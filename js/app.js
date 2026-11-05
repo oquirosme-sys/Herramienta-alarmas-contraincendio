@@ -1032,8 +1032,9 @@
       '<td><select class="in w-md" ' + b('circ') + '>' + optsLazosNivel(equipo(ref), f.circ, f.zona, d2) + '</select>' +
       (d2 && Calc.tipoLazo2De(d2) ? '<select class="in w-md" style="margin-top:.25rem" title="Este dispositivo se conecta también a un lazo de ' + esc(Calc.tipoLazo2De(d2)) + (Calc.parNacVoceo(d2) ? ' (o use un solo lazo NAC+Voceo)' : (Calc.tipoLazo2De(d2) === '24VDC' && Calc.tipoLazoDe(d2) === 'SLC' ? ' (o use un solo lazo SLC+24V)' : '')) + '" ' + b('circ2') + '>' +
         optsLazosTipo(equipo(ref), f.circ2, Calc.tipoLazo2De(d2)) + '</select>' : '') +
-      (d && !d.circuito2 && d.circuito !== 'NAC+VOCEO' ? '<select class="in w-md" style="margin-top:.25rem;font-size:.8em" title="Si este dispositivo también debe conectarse a otro lazo (p. ej. un SLC que requiere 24 V), elija el tipo del 2.º lazo" ' + b('t2') + ' data-re="vista">' +
-        opts([{ v: '', l: '＋ 2.º lazo: ninguno' }, { v: '24VDC', l: '2.º lazo: 24 VDC' }, { v: 'SLC', l: '2.º lazo: SLC' }, { v: 'NAC', l: '2.º lazo: NAC' }, { v: 'VOCEO', l: '2.º lazo: Voceo' }, { v: 'IDNAC', l: '2.º lazo: IDNAC' }], f.t2 || '') + '</select>' : '') + '</td>' +
+      (d && !d.circuito2 && d.circuito !== 'NAC+VOCEO' ? (f.t2
+        ? '<a href="#" class="muted" style="display:block;font-size:.75em;margin-top:.15rem" data-act="t2-off" data-eq="' + esc(ref) + '" data-id="' + esc(f.id) + '" title="Quitar el 2.º lazo de este dispositivo">✕ quitar 2.º lazo</a>'
+        : '<a href="#" class="muted" style="display:block;font-size:.75em;margin-top:.15rem" data-act="t2-on" data-eq="' + esc(ref) + '" data-id="' + esc(f.id) + '" title="Conectar este dispositivo también a un lazo de 24 VDC (p. ej. un SLC que requiere alimentación)">＋ 2.º lazo (24 VDC)</a>') : '') + '</td>' +
       '<td><input class="in w-xs" type="number" min="0" step="1" ' + b('cant', 'num') + ' value="' + fmtN(f.cant) + '" placeholder="10"></td>' +
       '<td><input class="in w-xs" type="number" step="any" ' + b('iEsp', 'num') + ' value="' + fmtN(f.iEsp) + '" placeholder="' + (d ? fmtN(d.iEspera) : '') + '"></td>' +
       '<td class="calc num" data-out="ie:' + f.id + '"></td>' +
@@ -2107,6 +2108,8 @@
         ok: 'Crear'
       }).then(function (r) { if (r) crear(r.clase); });
     },
+    't2-on': function (el) { var eq = equipo(el.dataset.eq), f = eq && porId(eq.filas, el.dataset.id); if (!f) return; f.t2 = '24VDC'; proyectoCambiado(); renderVista(); },
+    't2-off': function (el) { var eq = equipo(el.dataset.eq), f = eq && porId(eq.filas, el.dataset.id); if (!f) return; f.t2 = ''; f.circ2 = ''; proyectoCambiado(); renderVista(); },
     'lazo-nuevo': function (sel) {
       var eq = equipo(sel.dataset.eq), f = porId(eq.filas, sel.dataset.id), d = S.cx.disp[f.disp];
       dialogo({
@@ -2279,6 +2282,7 @@
     var b = e.target.closest('[data-act]');
     if (!b || !vista.contains(b)) return;
     var f = acciones[b.dataset.act];
+    if (b.tagName === 'A') e.preventDefault();
     if (f) f(b);
   });
   vista.addEventListener('keydown', function (e) {
