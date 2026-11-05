@@ -9,18 +9,18 @@
 
 
   /* Tipos de lazo / salida de un panel (SLC, NAC, IDNAC, 24 VDC, voceo, IDC) */
-  var TIPOS_LAZO = ['SLC', 'NAC', 'IDNAC', '24VDC', 'VOCEO', 'NAC+VOCEO', 'IDC', 'TEL'];
+  var TIPOS_LAZO = ['SLC', 'NAC', 'IDNAC', '24VDC', 'VOCEO', 'NAC+VOCEO', 'SLC+24V', 'IDC', 'TEL'];
   // tipo de lazo que le corresponde a un dispositivo según la columna «circuito» del catálogo
-  var LAZO_DE_CIRCUITO = { 'SLC': 'SLC', 'NAC': 'NAC', 'IDNAC': 'IDNAC', 'FUENTE AUX': '24VDC', 'VOCEO': 'VOCEO', 'NAC+VOCEO': 'NAC+VOCEO', 'IDC': 'IDC', 'ZONA': 'IDC' };
+  var LAZO_DE_CIRCUITO = { 'SLC': 'SLC', 'NAC': 'NAC', 'IDNAC': 'IDNAC', 'FUENTE AUX': '24VDC', 'VOCEO': 'VOCEO', 'NAC+VOCEO': 'NAC+VOCEO', 'SLC+24V': 'SLC+24V', 'IDC': 'IDC', 'ZONA': 'IDC' };
   // tipos de lazo en los que puede ir cada tipo de dispositivo (si no figura, no se valida)
-  var LAZOS_PERMITIDOS = { 'SLC': ['SLC'], 'NAC': ['NAC', 'NAC+VOCEO'], 'IDNAC': ['IDNAC'], 'FUENTE AUX': ['24VDC', 'NAC'], 'VOCEO': ['VOCEO', 'NAC', 'NAC+VOCEO'], 'NAC+VOCEO': ['NAC+VOCEO'], 'IDC': ['IDC'], 'ZONA': ['IDC'] };
+  var LAZOS_PERMITIDOS = { 'SLC': ['SLC', 'SLC+24V'], 'NAC': ['NAC', 'NAC+VOCEO'], 'IDNAC': ['IDNAC'], 'FUENTE AUX': ['24VDC', 'NAC'], 'VOCEO': ['VOCEO', 'NAC', 'NAC+VOCEO'], 'NAC+VOCEO': ['NAC+VOCEO'], 'IDC': ['IDC'], 'ZONA': ['IDC'] };
 
   /* Dispositivos con doble conexión (p. ej. base sonora o haz de luz): van a un SLC y además a un lazo de 24 VDC (campo «circuito2» del catálogo).
    * Para ellos el lazo principal es siempre SLC y la corriente del catálogo se carga al lazo de 24 VDC. */
   function tipoLazoDe(d) {
     if (!d) return 'NAC';
     if (/^J(-PH)?$/.test(d.tag || '')) return 'TEL';           // jack y teléfono de bomberos: lazo de teléfonos
-    if (d.circuito2 === '24VDC' && d.circuito !== 'ZONA') return 'SLC';   // con alimentación a 24 V se direcciona por SLC (los convencionales de 4 hilos van a su zona + 24 V)
+    if (d.circuito2 === '24VDC' && d.circuito !== 'ZONA' && !d._t2usr) return 'SLC';   // con alimentación a 24 V se direcciona por SLC (los convencionales de 4 hilos van a su zona + 24 V)
     if (d.circuito === 'NAC+VOCEO') return 'NAC';              // parlante + estrobo: el estrobo va al NAC y el parlante al voceo
     return LAZO_DE_CIRCUITO[d.circuito] || 'NAC';
   }
@@ -31,6 +31,17 @@
     return d.circuito === 'NAC+VOCEO' ? 'VOCEO' : null;
   }
   // NAC + voceo pueden ir juntos en un solo lazo «NAC+VOCEO» (misma tubería): en ese caso no hace falta un segundo lazo
+  /* Segundo lazo elegido por el usuario en la fila (f.t2) para un dispositivo que en el catálogo no lo tiene: devuelve el dispositivo «efectivo» */
+  function dispFila(d, f) {
+    if (!d || !f || !f.t2 || d.circuito2) return d;
+    var o = {}; Object.keys(d).forEach(function (k) { o[k] = d[k]; });
+    o.circuito2 = f.t2; o._t2usr = true;
+    return o;
+  }
+  // SLC + 24 V pueden ir juntos en un solo lazo «SLC+24V» (misma tubería)
+  function parSlc24(d) { return tipoLazoDe(d) === 'SLC' && tipoLazo2De(d) === '24VDC'; }
+  // ¿el lazo c reúne los dos circuitos del dispositivo (NAC+Voceo o SLC+24V)?
+  function combinado(d, c) { return !!(d && c && ((parNacVoceo(d) && c.tipo === 'NAC+VOCEO') || (parSlc24(d) && c.tipo === 'SLC+24V'))); }
   function parNacVoceo(d) { var a = tipoLazoDe(d), b = tipoLazo2De(d); return (a === 'NAC' && b === 'VOCEO') || (a === 'VOCEO' && b === 'NAC'); }
 
   var PARAMS_DEF = {
@@ -80,7 +91,7 @@
 
   /* Una fila de dispositivos (columnas D…K de BAT_xxx / CALC_FUENTE_AUX) */
   function fila(cx, f) {
-    var d = f.disp ? cx.disp[f.disp] : null;
+    var d = f.disp ? dispFila(cx.disp[f.disp], f) : null;
     var cant = num(f.cant);
     var iEspU = num(f.iEsp) !== null ? num(f.iEsp) : (d ? num(d.iEspera) : null);
     var iAlmU = num(f.iAlm) !== null ? num(f.iAlm) : (d ? num(d.iAlarma) : null);
@@ -138,7 +149,7 @@
   function alimentadores(proy) { var m = {}; (proy.paneles || []).concat(proy.fuentes || []).forEach(function (f) { m[f.id] = f; }); return m; }
   /* Lazo al que se carga la corriente de una fila: con doble conexión a 24 V, el lazo de 24 V; si no, el lazo principal */
   function lazoCorriente(d, f, circs) {
-    if (d && tipoLazo2De(d) === '24VDC') return (f.circ2 && circs[f.circ2]) || null;
+    if (d && tipoLazo2De(d) === '24VDC') return combinado(d, circs[f.circ]) ? circs[f.circ] : ((f.circ2 && circs[f.circ2]) || null);
     return (f.circ && circs[f.circ]) || null;
   }
   /* Equipo (fuente auxiliar o amplificador) que carga con la corriente de la fila, según el campo «alim» (alimentado por) del lazo.
@@ -162,7 +173,7 @@
         var c = circs && circs[f.circ];
         if (!c) { r.aviso = 'El lazo asignado ya no existe'; r.nivel = 'warn'; }
         else if (r.d && tipoLazo2De(r.d)) {
-          if (!(c.tipo === tipoLazoDe(r.d) || (parNacVoceo(r.d) && c.tipo === 'NAC+VOCEO'))) { r.aviso = 'Va conectado a un lazo de ' + tipoLazoDe(r.d) + ' (y a uno de ' + tipoLazo2De(r.d) + '); este lazo es ' + c.tipo; r.nivel = 'warn'; }
+          if (!(c.tipo === tipoLazoDe(r.d) || combinado(r.d, c))) { r.aviso = 'Va conectado a un lazo de ' + tipoLazoDe(r.d) + ' (y a uno de ' + tipoLazo2De(r.d) + '); este lazo es ' + c.tipo; r.nivel = 'warn'; }
         }
         else if (r.d && tipoLazoDe(r.d) === 'TEL' && c.tipo !== 'TEL') { r.aviso = 'Es jack / teléfono de bomberos y el lazo es ' + c.tipo + ' (use un lazo de teléfonos)'; r.nivel = 'warn'; }
         else if (r.d && !tipoLazo2De(r.d) && LAZOS_PERMITIDOS[r.d.circuito] && LAZOS_PERMITIDOS[r.d.circuito].indexOf(c.tipo) < 0) {
@@ -172,7 +183,7 @@
       // doble conexión: el segundo lazo también debe existir y ser del tipo correcto (salvo NAC + voceo en un solo lazo combinado)
       if (r.d && tipoLazo2De(r.d) && f.circ && !r.aviso) {
         var c1 = circs && circs[f.circ], t2 = tipoLazo2De(r.d), c2 = f.circ2 && circs && circs[f.circ2];
-        if (!(parNacVoceo(r.d) && c1 && c1.tipo === 'NAC+VOCEO')) {
+        if (!combinado(r.d, c1)) {
           if (!f.circ2) { r.aviso = 'Asigne también el lazo de ' + t2 + (t2 === '24VDC' ? ' (alimentación)' : ''); r.nivel = 'warn'; }
           else if (!c2) { r.aviso = 'El lazo de ' + t2 + ' asignado ya no existe'; r.nivel = 'warn'; }
           else if (c2.tipo !== t2) { r.aviso = 'El segundo lazo debe ser de ' + t2 + ' y este es ' + c2.tipo; r.nivel = 'warn'; }
@@ -269,7 +280,7 @@
         var t2 = tipoLazo2De(r.d), lz = f.circ, soloCuenta = null;
         if (t2) {
           var c1 = circs[f.circ];
-          if (parNacVoceo(r.d) && c1 && c1.tipo === 'NAC+VOCEO') lz = f.circ;                      // un solo lazo combinado: todo ahí
+          if (combinado(r.d, c1)) lz = f.circ;                      // un solo lazo combinado: todo ahí
           else if (t2 === '24VDC') { lz = f.circ2; soloCuenta = f.circ; }                          // la corriente (24 V) va al lazo de alimentación; el SLC solo cuenta el dispositivo
           else { lz = f.circ; soloCuenta = f.circ2; }                                              // NAC + voceo por separado: la corriente en el lazo principal; el otro solo cuenta
         }
@@ -367,6 +378,8 @@
     TIPOS_LAZO: TIPOS_LAZO,
     tipoLazoDe: tipoLazoDe,
     tipoLazo2De: tipoLazo2De,
+    dispFila: dispFila,
+    combinado: combinado,
     parNacVoceo: parNacVoceo,
     alimentadores: alimentadores,
     PARAMS_DEF: PARAMS_DEF,

@@ -7,10 +7,10 @@
   /* ---------- capas (nombre → color AutoCAD / color en pantalla) ---------- */
   var CAPAS = {
     'FA-MARCO': [7, '#111'], 'FA-TEXTO': [7, '#111'], 'FA-SIMBOLOS': [7, '#111'], 'FA-TABLA': [7, '#111'],
-    'FA-SLC': [3, '#1b9e3a'], 'FA-NAC': [30, '#a0522d'], 'FA-IDNAC': [30, '#a0522d'], 'FA-VOCEO': [30, '#a0522d'], 'FA-NAC-VOCEO': [30, '#a0522d'],
+    'FA-SLC': [3, '#1b9e3a'], 'FA-SLC-24VDC': [3, '#1b9e3a'], 'FA-NAC': [30, '#a0522d'], 'FA-IDNAC': [30, '#a0522d'], 'FA-VOCEO': [30, '#a0522d'], 'FA-NAC-VOCEO': [30, '#a0522d'],
     'FA-24VDC': [7, '#111'], 'FA-IDC': [3, '#1b9e3a'], 'FA-RED': [150, '#6c8cff'], 'FA-TELEFONO': [5, '#1f3bd1'], 'FA-ENCABEZADO': [5, '#1f4e79'], 'FA-ALERTA': [1, '#c00000'], 'FA-TEXTO-BLANCO': [7, '#fff'], 'FA-CAJETIN': [7, '#111'], 'FA-NIVEL': [8, '#777', 'DEMOLISHED']
   };
-  var CAPA_DE_TIPO = { SLC: 'FA-SLC', NAC: 'FA-NAC', IDNAC: 'FA-IDNAC', VOCEO: 'FA-VOCEO', 'NAC+VOCEO': 'FA-NAC-VOCEO', '24VDC': 'FA-24VDC', IDC: 'FA-IDC', TEL: 'FA-TELEFONO' };
+  var CAPA_DE_TIPO = { SLC: 'FA-SLC', NAC: 'FA-NAC', IDNAC: 'FA-IDNAC', VOCEO: 'FA-VOCEO', 'NAC+VOCEO': 'FA-NAC-VOCEO', 'SLC+24V': 'FA-SLC-24VDC', '24VDC': 'FA-24VDC', IDC: 'FA-IDC', TEL: 'FA-TELEFONO' };
 
   /* ---------- símbolos NFPA 170 ---------- */
   var SIM = {};
@@ -458,7 +458,7 @@
     var P = ctx.proy, cx = ctx.cx, Calc = ctx.Calc, cd = Calc.caida(cx, P), RP = Calc.proyecto(cx, P);
     var niveles = P.niveles.length ? P.niveles : ['NIVEL 1'];
     var equipos = P.paneles.concat(P.fuentes);
-    var ORD = ['SLC', 'IDC', 'NAC', 'NAC+VOCEO', 'IDNAC', 'VOCEO', '24VDC', 'TEL'];
+    var ORD = ['SLC', 'SLC+24V', 'IDC', 'NAC', 'NAC+VOCEO', 'IDNAC', 'VOCEO', '24VDC', 'TEL'];
     var NO = (P.notasDU && P.notasDU.facp && P.notasDU.gen) ? P.notasDU : notasDUBase();
     if (!NO.cab) NO = Object.assign({}, NO, { cab: notasDUBase().cab });
     var notasF = NO.facp.filter(function (x) { return x.on; });
@@ -492,7 +492,7 @@
     }
     equipos.forEach(function (eq) {
       (eq.filas || []).forEach(function (f) {
-        var dsp = cx.disp[f.disp], cant = Calc.num(f.cant);
+        var dsp = Calc.dispFila(cx.disp[f.disp], f), cant = Calc.num(f.cant);
         if (!dsp || !cant || /^(FACP|TRP|OTRO)$/.test(dsp.tag)) return;
         if (dsp.tag === 'ANN') { anunc.push({ dsp: dsp, cant: cant, nivel: f.zona || eq.nivel || '' }); }
         else if (f.circ && circs[f.circ]) { sumar(porLazo[f.circ] = porLazo[f.circ] || [], dsp, cant); enNivel(f.circ, idxNivel(f.zona) >= 0 ? f.zona : nivelDe(circs[f.circ]), dsp, cant); }
@@ -501,7 +501,7 @@
           sinLazo[nv] = sinLazo[nv] || {};
           sumar(sinLazo[nv][t] = sinLazo[nv][t] || [], dsp, cant);
         }
-        if (Calc.tipoLazo2De(dsp) && f.circ2 && circs[f.circ2]) { sumar(porLazo[f.circ2] = porLazo[f.circ2] || [], dsp, cant); enNivel(f.circ2, idxNivel(f.zona) >= 0 ? f.zona : nivelDe(circs[f.circ2]), dsp, cant); }
+        if (Calc.tipoLazo2De(dsp) && f.circ2 && f.circ2 !== f.circ && circs[f.circ2]) { sumar(porLazo[f.circ2] = porLazo[f.circ2] || [], dsp, cant); enNivel(f.circ2, idxNivel(f.zona) >= 0 ? f.zona : nivelDe(circs[f.circ2]), dsp, cant); }
         var cl = claveSimb(dsp);
         if (!numDe[cl]) numDe[cl] = ++nNum;
         if (usados.indexOf(dsp.id) < 0) usados.push(dsp.id);
@@ -579,7 +579,7 @@
     // FACP con módulos
     d.R(fx, fy, fw, fh, 'FA-SIMBOLOS');
     d.T(fx + 8, fy + fh - 18, 'FACP', 14, 'FA-TEXTO');
-    var nSLC = Math.max(1, P.caida.circuitos.filter(function (c) { return c.fuente === (facp || {}).id && c.tipo === 'SLC'; }).length),
+    var nSLC = Math.max(1, P.caida.circuitos.filter(function (c) { return c.fuente === (facp || {}).id && /^SLC/.test(c.tipo); }).length),
       nNAC = Math.max(1, P.caida.circuitos.filter(function (c) { return c.fuente === (facp || {}).id && /NAC/.test(c.tipo); }).length),
       nsl = Math.ceil(nSLC / 2), mods = Math.min(8, nsl + Math.ceil(nNAC / 2)), nmod = Math.max(mods, 6);
     var mw = Math.min(26, (fw - 20) / nmod), mx0 = fx + 10;

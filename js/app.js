@@ -134,7 +134,7 @@
       c.desc = c.desc || '';
     });
     delete p.caida.categorias;
-    p.paneles.concat(p.fuentes).forEach(function (e) { e.filas = e.filas || []; e.filas.forEach(function (f) { f.circ = f.circ || ''; f.circ2 = f.circ2 || ''; }); });
+    p.paneles.concat(p.fuentes).forEach(function (e) { e.filas = e.filas || []; e.filas.forEach(function (f) { f.circ = f.circ || ''; f.circ2 = f.circ2 || ''; f.t2 = f.t2 || ''; }); });
     return p;
   }
 
@@ -211,7 +211,7 @@
     return { id: uid('c'), fuente: eq, tipo: tipo, clase: 'B', circuito: (tipo === '24VDC' ? '24 VDC' : tipo) + ' ' + n, nivel: '', desc: '', otros: null, cable: buscarCable(tipo === 'VOCEO' || tipo === 'TEL' ? '5220FL' : '5220UL'), long: null };
   }
   /* «Alimentado por»: fuente auxiliar o amplificador que carga con la corriente de los dispositivos del lazo */
-  var TIPOS_ALIM = /^(VOCEO|NAC\+VOCEO|NAC|IDNAC|24VDC)$/;
+  var TIPOS_ALIM = /^(VOCEO|NAC\+VOCEO|SLC\+24V|NAC|IDNAC|24VDC)$/;
   function optsAlim(c, sel) {
     // se pueden elegir amplificadores y fuentes auxiliares para cualquier lazo; primero los que corresponden al tipo
     var t = c.tipo, fu = S.proy.fuentes, amps = fu.filter(function (f) { return f.tipo === 'AMP'; }), rps = fu.filter(function (f) { return f.tipo !== 'AMP'; });
@@ -237,7 +237,7 @@
     if (!TIPOS_ALIM.test(c.tipo)) return '<td class="muted" style="text-align:center">—</td>';
     return '<td><select class="in w-md" data-o="circ" data-id="' + esc(c.id) + '" data-k="alim" title="Fuente auxiliar o amplificador que carga con los dispositivos de este lazo">' + optsAlim(c, c.alim) + '</select></td>';
   }
-  function etiquetaTipo(t) { return t === '24VDC' ? '24 VDC' : (t === 'VOCEO' ? 'Voceo' : (t === 'NAC+VOCEO' ? 'NAC + Voceo' : (t === 'TEL' ? 'Teléfono' : t))); }
+  function etiquetaTipo(t) { return t === '24VDC' ? '24 VDC' : (t === 'VOCEO' ? 'Voceo' : (t === 'NAC+VOCEO' ? 'NAC + Voceo' : (t === 'SLC+24V' ? 'SLC + 24 V' : (t === 'TEL' ? 'Teléfono' : t)))); }
   function optsTiposLazo(sel) { return opts(Calc.TIPOS_LAZO.map(function (t) { return { v: t, l: etiquetaTipo(t) }; }), sel); }
   function lazosDe(eqId) { return S.proy.caida.circuitos.filter(function (c) { return c.fuente === eqId; }); }
   function optsLazos(eq, sel, tipo) {
@@ -834,7 +834,7 @@
           '<td><button class="btn-icon del" title="Eliminar lazo" data-act="circ-del" data-id="' + esc(c.id) + '">✕</button></td></tr>';
       }).join('') : '<tr><td colspan="12" class="vacio">Sin lazos. Agregue los que salen de este equipo (SLC, NAC, 24 VDC…) para poder asignar los dispositivos.</td></tr>') +
       '</tbody></table></div><div class="card-b" style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid var(--border)">' +
-      Calc.TIPOS_LAZO.map(function (t) { return '<button class="btn btn-sm" data-act="lazo-add" data-eq="' + esc(eq.id) + '" data-tipo="' + t + '"' + (t === 'NAC+VOCEO' ? ' title="NAC y voceo en la misma tubería"' : '') + '>+ ' + esc(etiquetaTipo(t)) + '</button>'; }).join('') +
+      Calc.TIPOS_LAZO.map(function (t) { return '<button class="btn btn-sm" data-act="lazo-add" data-eq="' + esc(eq.id) + '" data-tipo="' + t + '"' + (t === 'NAC+VOCEO' ? ' title="NAC y voceo en la misma tubería"' : (t === 'SLC+24V' ? ' title="SLC y 24 V en la misma tubería (dispositivos que van al SLC y requieren alimentación)"' : '')) + '>+ ' + esc(etiquetaTipo(t)) + '</button>'; }).join('') +
       '</div></section>');
 
     // Lazos de otros equipos que carga esta fuente / amplificador
@@ -988,7 +988,7 @@
     if (!f) return;
     f.disp = did || '';
     if (d) f.fab = d.fabricante;
-    f.iEsp = null; f.iAlm = null;
+    f.iEsp = null; f.iAlm = null; f.t2 = ''; f.circ2 = '';
     if (comboEl) comboEl.style.display = 'none';
     comboCtx = null;
     proyectoCambiado(); renderVista();
@@ -1022,16 +1022,18 @@
   });
 
   function filaHTML(ref, f, i, nivelVista) {
-    var d = S.cx.disp[f.disp];
+    var d = S.cx.disp[f.disp], d2 = Calc.dispFila(d, f);
     var b = function (k, t) { return 'data-o="fila" data-eq="' + esc(ref) + '" data-id="' + esc(f.id) + '" data-k="' + k + '"' + (t ? ' data-t="' + t + '"' : ''); };
     return '<tr data-fila="' + esc(f.id) + '"><td class="idx">' + (i + 1) + '</td>' +
       '<td><select class="in w-sm" ' + b('fab') + ' data-re="vista">' + optsFabricantes(f.fab) + '</select></td>' +
       '<td><input class="in w-xl" type="text" autocomplete="off" data-combo="1" data-eq="' + esc(ref) + '" data-id="' + esc(f.id) + '" data-label="' + esc(d ? etiquetaDisp(d) : '') + '" value="' + esc(d ? etiquetaDisp(d) : '') + '" placeholder="— escriba para buscar: modelo, tag, descripción, fabricante —" title="Escriba para filtrar (por ejemplo: jack, estrobo, 4098, CO)"></td>' +
       '<td class="calc" data-out="tag:' + f.id + '"></td>' +
       '<td><select class="in w-md" ' + b('zona') + '>' + optsNiveles(f.zona) + '</select></td>' +
-      '<td><select class="in w-md" ' + b('circ') + '>' + optsLazosNivel(equipo(ref), f.circ, f.zona, d) + '</select>' +
-      (d && Calc.tipoLazo2De(d) ? '<select class="in w-md" style="margin-top:.25rem" title="Este dispositivo se conecta también a un lazo de ' + esc(Calc.tipoLazo2De(d)) + (Calc.parNacVoceo(d) ? ' (o use un solo lazo NAC+Voceo)' : '') + '" ' + b('circ2') + '>' +
-        optsLazosTipo(equipo(ref), f.circ2, Calc.tipoLazo2De(d)) + '</select>' : '') + '</td>' +
+      '<td><select class="in w-md" ' + b('circ') + '>' + optsLazosNivel(equipo(ref), f.circ, f.zona, d2) + '</select>' +
+      (d2 && Calc.tipoLazo2De(d2) ? '<select class="in w-md" style="margin-top:.25rem" title="Este dispositivo se conecta también a un lazo de ' + esc(Calc.tipoLazo2De(d2)) + (Calc.parNacVoceo(d2) ? ' (o use un solo lazo NAC+Voceo)' : (Calc.tipoLazo2De(d2) === '24VDC' && Calc.tipoLazoDe(d2) === 'SLC' ? ' (o use un solo lazo SLC+24V)' : '')) + '" ' + b('circ2') + '>' +
+        optsLazosTipo(equipo(ref), f.circ2, Calc.tipoLazo2De(d2)) + '</select>' : '') +
+      (d && !d.circuito2 && d.circuito !== 'NAC+VOCEO' ? '<select class="in w-md" style="margin-top:.25rem;font-size:.8em" title="Si este dispositivo también debe conectarse a otro lazo (p. ej. un SLC que requiere 24 V), elija el tipo del 2.º lazo" ' + b('t2') + ' data-re="vista">' +
+        opts([{ v: '', l: '＋ 2.º lazo: ninguno' }, { v: '24VDC', l: '2.º lazo: 24 VDC' }, { v: 'SLC', l: '2.º lazo: SLC' }, { v: 'NAC', l: '2.º lazo: NAC' }, { v: 'VOCEO', l: '2.º lazo: Voceo' }, { v: 'IDNAC', l: '2.º lazo: IDNAC' }], f.t2 || '') + '</select>' : '') + '</td>' +
       '<td><input class="in w-xs" type="number" min="0" step="1" ' + b('cant', 'num') + ' value="' + fmtN(f.cant) + '" placeholder="10"></td>' +
       '<td><input class="in w-xs" type="number" step="any" ' + b('iEsp', 'num') + ' value="' + fmtN(f.iEsp) + '" placeholder="' + (d ? fmtN(d.iEspera) : '') + '"></td>' +
       '<td class="calc num" data-out="ie:' + f.id + '"></td>' +
@@ -1797,7 +1799,8 @@
       var d = S.cx.disp[obj.disp];
       if (d && d.fabricante !== v) obj.disp = '';
     }
-    if (el.dataset.o === 'fila' && k === 'disp') { obj.iEsp = null; obj.iAlm = null; }
+    if (el.dataset.o === 'fila' && k === 'disp') { obj.iEsp = null; obj.iAlm = null; obj.t2 = ''; obj.circ2 = ''; }
+    if (el.dataset.o === 'fila' && k === 't2') obj.circ2 = '';
     if (el.dataset.o === 'cat') catalogoCambiado(el.dataset.col);
     else proyectoCambiado();
     if (S.pintor) S.pintor();
@@ -2108,7 +2111,7 @@
       var eq = equipo(sel.dataset.eq), f = porId(eq.filas, sel.dataset.id), d = S.cx.disp[f.disp];
       dialogo({
         titulo: 'Nuevo lazo en ' + eq.tag,
-        html: '<label class="campo"><span>Tipo de lazo</span><select name="tipo">' + optsTiposLazo(sel.dataset.k === 'circ2' ? Calc.tipoLazo2De(d) : Calc.tipoLazoDe(d)) + '</select></label>' +
+        html: '<label class="campo"><span>Tipo de lazo</span><select name="tipo">' + optsTiposLazo(sel.dataset.k === 'circ2' ? Calc.tipoLazo2De(Calc.dispFila(d, f)) : Calc.tipoLazoDe(Calc.dispFila(d, f))) + '</select></label>' +
           '<label class="campo"><span>Nombre (opcional)</span><input name="nombre" placeholder="Ej.: SLC 2"></label>' +
           '<label class="campo"><span>Clase del circuito</span><select name="clase"><option value="B">Clase B — un solo camino</option><option value="A">Clase A — con retorno al panel</option></select></label>',
         ok: 'Crear'
